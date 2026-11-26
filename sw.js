@@ -1,5 +1,5 @@
 /* Cache offline do Xadrez Custom Full 1.5 — MCE1809 */
-const CACHE='xadrez-mce1809-full-v15';
+const CACHE='xadrez-mce1809-full-v151';
 const FILES=['./','./index.html','./engine.js','./game.js','./peer.js','./style.css','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
 self.addEventListener('install',e=>e.waitUntil((async()=>{const c=await caches.open(CACHE);await c.addAll(FILES);await self.skipWaiting();})()));
 self.addEventListener('activate',e=>e.waitUntil((async()=>{const keys=await caches.keys();await Promise.all(keys.filter(k=>k.startsWith('xadrez-mce1809-')&&k!==CACHE).map(k=>caches.delete(k)));await self.clients.claim();})()));

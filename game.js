@@ -12,6 +12,43 @@ const LEGACY_STORAGE='mce1809-xadrez-full-v11';
 const THEME_STORE='mce1809-xadrez-custom-themes-v14';
 const SOUND_STORE='mce1809-xadrez-sound-v12';
 const RATING_STORE='mce1809-xadrez-rating-v14';
+/* Full 1.5.1: armazenamento local por categorias, sem limite artificial de temas.
+   Cada categoria é uma object store do IndexedDB. */
+const DB_NAME='Xadrez_MCE1809', DB_VERSION=1;
+const DB_STORES=['partidas','temas','imagens','tempo','progresso','configuracoes'];
+let dbPromise=null;
+function openGameDB(){
+ if(!('indexedDB' in window))return Promise.reject(Error('IndexedDB indisponível neste navegador.'));
+ if(dbPromise)return dbPromise;
+ dbPromise=new Promise((resolve,reject)=>{
+  const r=indexedDB.open(DB_NAME,DB_VERSION);
+  r.onupgradeneeded=()=>{for(const name of DB_STORES)if(!r.result.objectStoreNames.contains(name))r.result.createObjectStore(name);};
+  r.onsuccess=()=>resolve(r.result);
+  r.onerror=()=>reject(r.error||Error('Falha ao abrir IndexedDB'));
+  r.onblocked=()=>reject(Error('Feche outras abas do jogo e tente novamente.'));
+ }).catch(e=>{dbPromise=null;throw e;});
+ return dbPromise;
+}
+async function dbOperation(store,operation,key,value){
+ const db=await openGameDB();
+ return new Promise((resolve,reject)=>{
+  let result;const tx=db.transaction(store,operation==='get'?'readonly':'readwrite');
+  const os=tx.objectStore(store),request=operation==='get'?os.get(key):operation==='delete'?os.delete(key):os.put(value,key);
+  request.onsuccess=()=>{result=request.result;};
+  tx.oncomplete=()=>resolve(result);tx.onerror=()=>reject(tx.error||request.error||Error('Erro ao salvar dados'));
+  tx.onabort=()=>reject(tx.error||Error('Operação cancelada'));
+ });
+}
+const dbGet=(store,key)=>dbOperation(store,'get',key);
+const dbPut=(store,key,value)=>dbOperation(store,'put',key,value);
+const dbDelete=(store,key)=>dbOperation(store,'delete',key);
+let saveGameRevision=0;
+async function dbSaveCurrentGame(data){
+ const revision=++saveGameRevision;
+ try{await dbPut('partidas','atual',data);if(revision===saveGameRevision){/* atualizado */}}
+ catch(err){$('appearanceSaveStatus').textContent='Não foi possível salvar no banco local: '+err.message;console.error(err);}
+}
+
 let rating={elo:600,xp:0,w:0,d:0,l:0};let ratedOnce=false;
 let playerChoice='w',humanColor='w',trainingHint=null,skinSide='w';
 let savedThemes=[];
@@ -60,7 +97,7 @@ function playSound(kind){
     }
   }catch(_){} // O áudio nunca pode interromper uma partida.
 }
-function saveSound(){try{localStorage.setItem(SOUND_STORE,JSON.stringify(soundConfig));}catch(_){}}
+function saveSound(){try{localStorage.setItem(SOUND_STORE,JSON.stringify(soundConfig)); dbPut('configuracoes','som',cloneSimple(soundConfig)).catch(()=>{});}catch(_){}}
 function setupSound(){
   try{const prev=JSON.parse(localStorage.getItem(SOUND_STORE)||'null');if(prev&&typeof prev==='object'){soundConfig.enabled=prev.enabled!==false; soundConfig.volume=Math.max(0,Math.min(1,Number(prev.volume)||0));}}catch(_){}
   $('soundEnabled').checked=soundConfig.enabled;
@@ -94,9 +131,9 @@ function normalizeAppearance(a){
 }
 function safeSave(){
  try{
-  const data={version:3,mode,rules,position:pos,undo:undoStack.slice(-30),opponent:$('opponent').value,difficulty:$('difficulty').value,flipped,appearance,playerChoice,humanColor};
-  localStorage.setItem(STORAGE,JSON.stringify(data));return true;
- }catch(_){$('appearanceSaveStatus').textContent='O armazenamento deste navegador está cheio. Exporte seus packs ou use imagens menores.';return false;}
+  const data={version:3,mode,rules,position:pos,undo:undoStack.slice(-30),opponent:$('opponent').value,difficulty:$('difficulty').value,flipped,appearance:cloneSimple(appearance),playerChoice,humanColor};
+  dbSaveCurrentGame(data);return true;
+ }catch(err){$('appearanceSaveStatus').textContent='Falha ao preparar salvamento: '+err.message;return false;}
 }
 function isValidRestore(d){
  const okVersion=d&&[1,2,3].includes(d.version);
@@ -200,12 +237,23 @@ function effectiveAppearanceKey(a){
  const pieces=x.pieces==='custom'?x.pieceImages:{};
  return JSON.stringify({theme:x.theme,boardColors,boardImages,pieces:x.pieces,quickPack:x.pieces==='custom'?x.quickPack:'',pieceImages:pieces});
 }
-function saveThemeLibrary(){
- try{localStorage.setItem(THEME_STORE,JSON.stringify(savedThemes));return true;}
- catch(_){$('themeLibraryStatus').textContent='Espaço insuficiente: exporte seu pack e libere armazenamento para salvar mais temas.';return false;}
+async function saveThemeLibrary(){
+ try{
+  await dbPut('temas','biblioteca',cloneSimple(savedThemes));
+  return true;
+ }catch(err){$('themeLibraryStatus').textContent='Não foi possível salvar a biblioteca local: '+err.message;return false;}
 }
-function loadThemeLibrary(){
- try{const stored=JSON.parse(localStorage.getItem(THEME_STORE)||'[]');savedThemes=Array.isArray(stored)?stored.filter(t=>t&&typeof t.id==='string'&&typeof t.name==='string'&&t.appearance).slice(0,80):[];}catch(_){savedThemes=[];}
+async function loadThemeLibrary(){
+ try{
+  const stored=await dbGet('temas','biblioteca');
+  if(Array.isArray(stored))savedThemes=stored.filter(t=>t&&typeof t.id==='string'&&typeof t.name==='string'&&t.appearance);
+  else{
+    // Migração sem apagar nada antigo: cópia para o novo banco, se existir.
+    const previous=JSON.parse(localStorage.getItem(THEME_STORE)||'[]');
+    savedThemes=Array.isArray(previous)?previous.filter(t=>t&&typeof t.id==='string'&&typeof t.name==='string'&&t.appearance):[];
+    if(savedThemes.length)await saveThemeLibrary();
+  }
+ }catch(err){console.warn('Biblioteca de temas:',err);savedThemes=[];}
  refreshThemeList();
 }
 function refreshThemeList(selectedId=''){
@@ -217,7 +265,7 @@ function refreshThemeList(selectedId=''){
  $('themeLibraryStatus').textContent=savedThemes.length?`${savedThemes.length} tema(s) salvo(s) neste navegador.`:'Nenhum tema salvo ainda.';
 }
 function nextThemeName(){let n=1;while(savedThemes.some(x=>x.name===`Tema Custom #${n}`))n++;return `Tema Custom #${n}`;}
-function saveNewTheme(){
+async function saveNewTheme(){
  const a=themeSnapshot(),k=effectiveAppearanceKey(a);
  if(k===effectiveAppearanceKey(APPEARANCE_DEFAULT)){$('themeLibraryStatus').textContent='Altere ao menos uma peça, cor ou visual do tabuleiro antes de salvar.';return;}
  if(savedThemes.some(item=>effectiveAppearanceKey(item.appearance)===k)){$('themeLibraryStatus').textContent='Esse visual já está salvo. Mude pelo menos uma peça, cor ou outro detalhe.';return;}
@@ -227,28 +275,28 @@ function saveNewTheme(){
  const name=(!input||input===selected?.name)?nextThemeName():input;
  if(savedThemes.some(item=>item.name.toLowerCase()===name.toLowerCase())){$('themeLibraryStatus').textContent='Já existe um tema com esse nome. Escolha outro.';return;}
  savedThemes.push({id,name,appearance:a});
- if(!saveThemeLibrary()){savedThemes.pop();return;}
+ if(!await saveThemeLibrary()){savedThemes.pop();return;}
  refreshThemeList(id);$('themeLibraryStatus').textContent=`${name} foi salvo! Você pode trocar de tema a qualquer momento.`;
 }
 function loadSelectedTheme(){
  const item=savedThemes.find(x=>x.id===$('savedThemeSelect').value);if(!item){$('themeLibraryStatus').textContent='Escolha um tema da lista.';return;}
  appearance=normalizeAppearance(item.appearance);applyAppearanceToUI();render();safeSave();$('themeLibraryStatus').textContent=`Tema “${item.name}” aplicado!`;
 }
-function renameSelectedTheme(){
+async function renameSelectedTheme(){
  const item=savedThemes.find(x=>x.id===$('savedThemeSelect').value);if(!item){$('themeLibraryStatus').textContent='Selecione o tema que deseja renomear.';return;}
  const name=$('customThemeName').value.trim().slice(0,50);
  if(!name){$('themeLibraryStatus').textContent='Digite um nome para o tema.';return;}
  if(savedThemes.some(x=>x.id!==item.id&&x.name.toLowerCase()===name.toLowerCase())){$('themeLibraryStatus').textContent='Esse nome já está sendo usado.';return;}
  const prev=item.name;item.name=name;
- if(!saveThemeLibrary()){item.name=prev;return;}
+ if(!await saveThemeLibrary()){item.name=prev;return;}
  refreshThemeList(item.id);$('themeLibraryStatus').textContent=`Tema renomeado para “${name}”.`;
 }
-function deleteSelectedTheme(){
+async function deleteSelectedTheme(){
  const id=$('savedThemeSelect').value;const item=savedThemes.find(x=>x.id===id);
  if(!item){$('themeLibraryStatus').textContent='Selecione um tema para excluir.';return;}
  if(!window.confirm(`Excluir o tema “${item.name}”?`))return;
  savedThemes=savedThemes.filter(x=>x.id!==id);
- if(!saveThemeLibrary()){$('themeLibraryStatus').textContent='Não foi possível salvar a exclusão.';return;}
+ if(!await saveThemeLibrary()){$('themeLibraryStatus').textContent='Não foi possível salvar a exclusão.';return;}
  refreshThemeList();$('customThemeName').value='';$('themeLibraryStatus').textContent='Tema excluído da biblioteca.';
 }
 function exportAppearance(){
@@ -442,7 +490,7 @@ function loadRating(){
   }
   if(x&&Number.isFinite(x.elo)&&Number.isInteger(x.w)&&Number.isInteger(x.d)&&Number.isInteger(x.l)){
    rating={elo:Math.max(100,Math.min(3000,Math.round(x.elo))),xp:Number.isFinite(x.xp)?Math.max(0,Math.round(x.xp)):0,w:x.w,d:x.d,l:x.l};
-   localStorage.setItem(RATING_STORE,JSON.stringify(rating));
+   localStorage.setItem(RATING_STORE,JSON.stringify(rating)); dbPut('progresso','elo',cloneSimple(rating)).catch(()=>{});
   }
  }catch(_){}updateRatingUI();
 }
@@ -455,7 +503,7 @@ function recordRating(){
  rating.elo=Math.round(Math.max(100,Math.min(3000,rating.elo+30*(score-expected))));
  if(score===1){rating.w++;rating.xp+=35+Number($('difficulty').value)*15;}
  else if(score===0)rating.l++;else rating.d++;
- try{localStorage.setItem(RATING_STORE,JSON.stringify(rating));}catch(_){}updateRatingUI();
+ try{localStorage.setItem(RATING_STORE,JSON.stringify(rating)); dbPut('progresso','elo',cloneSimple(rating)).catch(()=>{});}catch(_){}updateRatingUI();
  if(score===1)notify(`Vitória! +${35+Number($('difficulty').value)*15} XP. Elo atualizado.`);
 }
 function remoteStatus(t){$('remoteStatus').textContent=t;}
@@ -577,8 +625,8 @@ function showTrainingHint(){
  render();
 }
 function clearTrainingHint(){trainingHint=null;$('trainingTip').textContent='Dica removida. Continue praticando!';render();}
-function init(){
- setupSound();loadRating();bindPeerUI();loadThemeLibrary();setupOfflineUI();
+async function init(){
+ setupSound();loadRating();bindPeerUI();setupOfflineUI();
  rebuildAppearanceInputs();
  $('whiteSkinTab').addEventListener('click',()=>{skinSide='w';rebuildAppearanceInputs();});
  $('blackSkinTab').addEventListener('click',()=>{skinSide='b';rebuildAppearanceInputs();});
@@ -608,11 +656,15 @@ function init(){
  $('downloadGame').addEventListener('click',exportGame);$('loadGame').addEventListener('click',()=>$('fileInput').click());
  $('fileInput').addEventListener('change',async ev=>{const file=ev.target.files?.[0];if(!file)return;if(file.size>8_000_000){alert('Arquivo grande demais para uma partida.');ev.target.value='';return;}try{restore(JSON.parse(await file.text()));safeSave();notify('Partida importada!');}catch(err){alert('Não foi possível abrir: '+err.message);}ev.target.value='';});
  toggleBotControl();setRemoteUI();
+ await loadThemeLibrary();
  try{
-  const saved=localStorage.getItem(STORAGE)||localStorage.getItem(LEGACY_STORAGE);
-  if(saved){restore(JSON.parse(saved));safeSave();notify('Partida restaurada automaticamente.');}
+  // Prioriza a versão IndexedDB, mas recupera dados antigos sem apagá-los.
+  const dbSaved=await dbGet('partidas','atual');
+  const legacy=localStorage.getItem(STORAGE)||localStorage.getItem(LEGACY_STORAGE);
+  const saved=dbSaved||(legacy?JSON.parse(legacy):null);
+  if(saved){restore(saved);safeSave();notify('Partida restaurada automaticamente.');}
   else {appearance=cloneSimple(APPEARANCE_DEFAULT);applyAppearanceToUI();setMode();}
- }catch(_){appearance=cloneSimple(APPEARANCE_DEFAULT);applyAppearanceToUI();setMode();}
+ }catch(err){console.warn('Recuperação:',err);appearance=cloneSimple(APPEARANCE_DEFAULT);applyAppearanceToUI();setMode();}
 }
 init();
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
