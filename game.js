@@ -1,4 +1,4 @@
-/* Interface e persistência offline do Xadrez Custom Full — MCE1809 1.5 */
+/* Interface e persistência offline do Xadrez Custom Full — MCE1809 1.6.1 */
 (()=>{
 'use strict';
 const E=window.XadrezEngine;
@@ -52,7 +52,8 @@ async function dbSaveCurrentGame(data){
 let rating={elo:600,xp:0,w:0,d:0,l:0};let ratedOnce=false;
 let playerChoice='w',humanColor='w',trainingHint=null,skinSide='w';
 let savedThemes=[];
-let peer=null,peerRole=null,peerReady=false;
+let peer=null,peerRole=null,peerReady=false,remoteOutcome=null,drawOffered=false,drawReceived=false;
+let matchStartedAt=Date.now(),matchElapsedMs=0,matchTimerId=null;
 let audioCtx=null;
 let soundConfig={enabled:true,volume:0.35};
 const APPEARANCE_DEFAULT={theme:'madeira',pieces:'classic',quickPack:'classic',boardImages:{light:'',dark:''},boardColors:{light:'#ebd7b2',dark:'#7f9785'},pieceImages:{}};
@@ -74,11 +75,13 @@ function unlockAudio(){
     audioCtx.resume().then(()=>{audioReady=audioCtx.state==='running';}).catch(()=>{});
   }catch(_){}
 }
-function playSound(kind){
+async function playSound(kind){
   if(!soundConfig.enabled||soundConfig.volume<=0)return;
   try{
     unlockAudio();
-    if(!audioCtx||audioCtx.state!=='running')return;
+    if(!audioCtx)return;
+    if(audioCtx.state!=='running')await audioCtx.resume();
+    if(audioCtx.state!=='running')return;
     // Percussão curta: dois contatos secos de madeira separados por 54ms.
     const clicks={move:[0,.054],capture:[0,.052,.12],check:[0,.054,.18],end:[0,.075,.17],undo:[0,.065]};
     const now=audioCtx.currentTime+.006;
@@ -140,6 +143,20 @@ function isValidRestore(d){
  return okVersion&&['balanced','classic','chaos'].includes(d.mode)&&!E.validate(d.rules,d.mode)&&d.position&&Array.isArray(d.position.board)&&d.position.board.length===8&&d.position.board.every(row=>Array.isArray(row)&&row.length===8&&row.every(p=>!p||E.TYPES.includes(p.type)&&['w','b'].includes(p.color)))&&['w','b'].includes(d.position.turn)&&d.position.rights&&typeof d.position.rights==='object'&&d.position.repetitions&&typeof d.position.repetitions==='object'&&Array.isArray(d.position.history)&&d.position.history.length<2000;
 }
 function stopTimer(){if(timer!==null){clearTimeout(timer);timer=null;}}
+function updateMatchTimer(){
+  const t=$('matchTime');if(!t)return;
+  const running=pos.history.length>0&&!finalStatus?.over&&!remoteOutcome;
+  const ms=matchElapsedMs+(running?Date.now()-matchStartedAt:0);
+  const seconds=Math.max(0,Math.floor(ms/1000));
+  t.textContent=String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');
+}
+function matchTimerReset(){matchElapsedMs=0;matchStartedAt=Date.now();updateMatchTimer();}
+function matchTimerPause(){if(pos.history.length){matchElapsedMs+=Date.now()-matchStartedAt;}matchStartedAt=Date.now();updateMatchTimer();}
+function updateConnectionBadge(){
+ const t=$('connectionBadge');if(!t)return;
+ t.textContent=$('opponent').value==='remote'?(peerReady?'● Conectado ao adversário':'○ Aguardando conexão'):'● Jogo local';
+}
+
 function isBotMode(){return $('opponent').value==='bot'||$('opponent').value==='training';}
 function isTraining(){return $('opponent').value==='training';}
 function updateColorUI(){
@@ -323,7 +340,7 @@ function restore(d){
 }
 function startGame(){
  for(const ghost of document.querySelectorAll('.moving-piece-ghost'))ghost.remove();
- stopTimer();pos=E.newPosition();undoStack=[];selected=null;selections=[];promotionPending=null;ratedOnce=false;trainingHint=null;closePromotion();
+ stopTimer();matchTimerReset();remoteOutcome=null;drawOffered=false;drawReceived=false;pos=E.newPosition();undoStack=[];selected=null;selections=[];promotionPending=null;ratedOnce=false;trainingHint=null;closePromotion();
  if($('opponent').value!=='remote'){
   playerChoice=$('playerColor').value;
   humanColor=playerChoice==='random'?(Math.random()<0.5?'w':'b'):playerChoice;
@@ -367,7 +384,9 @@ function animateMove(m,oldPiece,fromRect,onArrive){
  }
 }
 function render(){
-  finalStatus=E.result(pos,rules); say(statusText(finalStatus));
+  finalStatus=E.result(pos,rules);
+  if(remoteOutcome){finalStatus={...finalStatus,over:true,check:false,winner:null,reason:remoteOutcome};say(remoteOutcome);}else say(statusText(finalStatus));
+  updateConnectionBadge();updateMatchTimer();
   $('turnPill').textContent=finalStatus.over?'Partida encerrada':pos.turn==='w'?'Vez das brancas':'Vez das pretas';
   $('lastMove').textContent=pos.history.length?'Última: '+pos.history.at(-1):'Escolha uma peça para começar.';
   applyAppearanceToUI();
@@ -401,7 +420,7 @@ function render(){
   for(const str of pos.history.slice(-28)){const li=document.createElement('li'); li.textContent=str; hist.appendChild(li);} hist.scrollTop=hist.scrollHeight;
 }
 function squareClick(r,c){
- if(finalStatus?.over||promotionPending)return;
+ if(finalStatus?.over||promotionPending||remoteOutcome)return;
  if(isBotMode()&&pos.turn!==humanColor)return;
  if($('opponent').value==='remote'&&(!peerReady||pos.turn!==(peerRole==='host'?'w':'b')))return;
  const possible=selections.filter(m=>m.tr===r&&m.tc===c);
@@ -424,6 +443,8 @@ function choosePromotion(moves){
 }
 function closePromotion(){$('promotionModal').hidden=true; $('promotionModal').setAttribute('aria-hidden','true');}
 function doMove(m,remote=false){
+ if(remoteOutcome)return;
+ const priorKey=E.positionKey(pos);
  if($('opponent').value==='remote'){
   if(!peerReady)return;
   if(!remote&&pos.turn!==(peerRole==='host'?'w':'b'))return;
@@ -435,8 +456,9 @@ function doMove(m,remote=false){
  undoStack.push(E.clone(pos));if(undoStack.length>50)undoStack.shift();
  pos=E.apply(pos,m,true);selected=null;selections=[];trainingHint=null;render();
  const soundKind=finalStatus.over?'end':finalStatus.check?'check':captured?'capture':'move';
+ if(pos.history.length===1){matchStartedAt=Date.now();matchElapsedMs=0;}updateMatchTimer();
  animateMove(m,oldPiece,oldRect,()=>playSound(soundKind));
- if($('opponent').value==='remote'&&!remote){if(!peer?.send({t:'move',m:{fr:m.fr,fc:m.fc,tr:m.tr,tc:m.tc,promote:m.promote||''},n:pos.history.length}))notify('Falha ao enviar movimento.');}
+ if($('opponent').value==='remote'&&!remote){if(!peer?.send({t:'move',m:{fr:m.fr,fc:m.fc,tr:m.tr,tc:m.tc,promote:m.promote||''},n:pos.history.length,prior:priorKey,after:E.positionKey(pos)}))notify('Falha ao enviar movimento.');}
  recordRating();safeSave();
  if(!finalStatus.over&&isBotMode()&&pos.turn!==humanColor)scheduleBot();
 }
@@ -511,17 +533,18 @@ function setRemoteUI(){
  const remote=$('opponent').value==='remote';$('remotePanel').hidden=!remote;
  $('difficultyWrap').style.display=isBotMode()?'':'none';$('trainingPanel').hidden=!isTraining();
  $('restart').disabled=remote;$('undo').disabled=remote;$('loadGame').disabled=remote;$('mode').disabled=remote;
+ $('offerDraw').disabled=!peerReady;$('requestSync').disabled=!peerReady;$('resignPeer').disabled=!peerReady;
  $('applyRules').disabled=remote||mode==='classic';$('resetRules').disabled=remote;
  $('moveRule').disabled=remote||mode==='classic';$('captureRule').disabled=remote||mode==='classic';updateColorUI();
 }
-function peerClosed(){peerReady=false;remoteStatus('Desconectado. Gere novos códigos se quiser voltar.');setRemoteUI();render();}
+function peerClosed(){peerReady=false;drawOffered=false;drawReceived=false;$('acceptDraw').hidden=true;remoteStatus('Desconectado. Gere novos códigos se quiser voltar.');setRemoteUI();render();}
 function startPeer(){
   if(peer){peer.close(false);peer=null;}
   peerReady=false;peerRole=null;
   peer=new window.ChessPeer({
     onMessage:receivePeerMessage,
     onOpen:role=>{
-      peerReady=true;peerRole=role;
+      peerReady=true;peerRole=role;remoteOutcome=null;drawOffered=false;drawReceived=false;
       if(role==='host'){startGame();peer.send({t:'sync',mode,rules,position:pos});}
       else{flipped=true;render();}
       setRemoteUI();render();
@@ -532,21 +555,42 @@ function startPeer(){
   return peer;
 }
 function receivePeerMessage(msg){
-  if($('opponent').value!=='remote'||!peerReady)return;
+  if($('opponent').value!=='remote'||!peerReady||!msg||typeof msg!=='object')return;
   if(msg.t==='sync'&&peerRole==='guest'){
-    if(!['balanced','classic','chaos'].includes(msg.mode)||E.validate(msg.rules,msg.mode)){
+    if(!['balanced','classic','chaos'].includes(msg.mode)||!msg.rules||E.validate(msg.rules,msg.mode)){
       remoteStatus('Regras recebidas inválidas.');return;
     }
     mode=msg.mode;rules=E.clone(msg.rules);draft=E.clone(rules);
-    pos=E.newPosition();undoStack=[];selected=null;selections=[];
+    const current=(msg.position&&isValidRestore({version:3,mode,rules,position:msg.position}))?msg.position:E.newPosition();
+    pos=E.clone(current);remoteOutcome=null;drawOffered=false;drawReceived=false;
+    matchTimerReset();undoStack=[];selected=null;selections=[];
     $('mode').value=mode;redrawEditor();setRemoteUI();render();
-    remoteStatus('Partida sincronizada. Você joga com as pretas.');
-    return;
+    remoteStatus('Partida sincronizada. Você joga com as pretas.');return;
   }
-  if(msg.t==='move'&&msg.m&&Number.isInteger(msg.n)&&msg.n===pos.history.length+1){
+  if(msg.t==='sync-request'&&peerRole==='host'){
+    peer.send({t:'sync',mode,rules,position:pos});remoteStatus('Estado da partida reenviado.');return;
+  }
+  if(msg.t==='move'&&msg.m&&Number.isInteger(msg.n)){
     if(pos.turn===(peerRole==='host'?'w':'b'))return;
+    if(msg.n!==pos.history.length+1||typeof msg.prior==='string'&&msg.prior!==E.positionKey(pos)){
+      remoteStatus('Jogadas fora de sincronia. Peça para o anfitrião reenviar o estado.');return;
+    }
     const mv=E.legalAll(pos,pos.turn,rules).find(x=>x.fr===msg.m.fr&&x.fc===msg.m.fc&&x.tr===msg.m.tr&&x.tc===msg.m.tc&&(x.promote||'')===(msg.m.promote||''));
-    if(mv)doMove(mv,true);else remoteStatus('Jogada inválida recebida.');
+    if(mv){doMove(mv,true);if(msg.after&&msg.after!==E.positionKey(pos))remoteStatus('Diferença detectada na posição. Solicite sincronização.');}
+    else remoteStatus('Jogada inválida recebida. Solicite sincronização.');return;
+  }
+  if(msg.t==='resign'){
+    remoteOutcome='O adversário abandonou a partida. Você venceu!';
+    remoteStatus('Adversário abandonou a partida.');render();return;
+  }
+  if(msg.t==='draw-offer'&&!remoteOutcome){
+    drawReceived=true;$('acceptDraw').hidden=false;remoteStatus('O adversário propôs empate. Aceite ou continue jogando.');return;
+  }
+  if(msg.t==='draw-accept'&&!remoteOutcome){
+    remoteOutcome='Empate por acordo entre jogadores.';drawOffered=false;drawReceived=false;$('acceptDraw').hidden=true;remoteStatus('Empate aceito.');render();return;
+  }
+  if(msg.t==='draw-reject'){
+    drawOffered=false;remoteStatus('O adversário recusou o empate. A partida continua.');return;
   }
 }
 function bindPeerUI(){
@@ -590,6 +634,26 @@ function bindPeerUI(){
     try{await navigator.share({title:'Xadrez Custom — código de conexão',text:$('ownSignal').value});}
     catch(_){remoteStatus('Use Copiar código e envie pelo método disponível no celular.');}
   });
+  $('requestSync').addEventListener('click',()=>{
+    if(!peerReady){remoteStatus('Primeiro conecte os dois aparelhos.');return;}
+    if(peerRole==='host'){peer.send({t:'sync',mode,rules,position:pos});remoteStatus('Estado da partida reenviado.');}
+    else{peer.send({t:'sync-request'});remoteStatus('Solicitando estado ao anfitrião...');}
+  });
+  $('offerDraw').addEventListener('click',()=>{
+    if(!peerReady||remoteOutcome||finalStatus?.over){remoteStatus('Não há partida ativa para propor empate.');return;}
+    if(drawOffered){remoteStatus('Você já propôs empate.');return;}
+    drawOffered=true;peer.send({t:'draw-offer'});remoteStatus('Pedido de empate enviado.');
+  });
+  $('acceptDraw').addEventListener('click',()=>{
+    if(!peerReady||!drawReceived||remoteOutcome)return;
+    peer.send({t:'draw-accept'});remoteOutcome='Empate por acordo entre jogadores.';
+    drawReceived=false;drawOffered=false;$('acceptDraw').hidden=true;render();remoteStatus('Empate aceito.');
+  });
+  $('resignPeer').addEventListener('click',()=>{
+    if(!peerReady||finalStatus?.over||remoteOutcome)return;
+    if(!confirm('Abandonar esta partida?'))return;
+    peer.send({t:'resign'});remoteOutcome='Você abandonou a partida.';render();remoteStatus('Você abandonou a partida.');
+  });
   $('disconnectPeer').addEventListener('click',()=>{peer?.close();peer=null;peerRole=null;peerReady=false;remoteStatus('Conexão encerrada.');render();});
 }
 
@@ -599,7 +663,7 @@ function setupOfflineUI(){
    if(!('serviceWorker' in navigator)||!('caches' in window)){label.textContent='Offline: navegador sem suporte necessário';return;}
    try{
      const names=await caches.keys();
-     const cacheName=names.find(x=>x==='xadrez-mce1809-full-v15');
+     const cacheName=names.find(x=>x==='xadrez-mce1809-full-v161');
      if(!cacheName){label.textContent='Offline: preparando arquivos — mantenha esta página online';return;}
      const c=await caches.open(cacheName);
      const entries=await Promise.all(['index.html','engine.js','game.js','peer.js','style.css','manifest.webmanifest','icon-192.png','icon-512.png'].map(f=>c.match(new URL('./'+f,location.href))));

@@ -1,7 +1,7 @@
 {
-  "name": "Xadrez Custom Full 1.5 — MCE1809",
+  "name": "Xadrez Custom Full 1.6.1 — MCE1809",
   "short_name": "Xadrez Full",
-  "description": "Xadrez customizado e clássico com bot em 4 níveis, treino, Elo, XP, animações e multiplayer experimental. Jogo offline.",
+  "description": "Xadrez clássico e custom com bots, treino, Elo, XP, temas personalizados, conexão WebRTC e modo offline.",
   "lang": "pt-BR",
   "id": "./",
   "start_url": "./index.html",

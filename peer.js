@@ -1,4 +1,4 @@
-/* Xadrez Custom — WebRTC ponto a ponto, sem serviço de sinalização. Beta 1.3 */
+/* Xadrez Custom — WebRTC ponto a ponto, sem serviço de sinalização. Full 1.6.1 */
 (function(root){'use strict';
 class ChessPeer {
   constructor({onMessage,onOpen,onClose,onStatus}){
@@ -13,9 +13,9 @@ class ChessPeer {
     const pc=this.pc=new RTCPeerConnection(config);
     pc.onconnectionstatechange=()=>{
       if(this.pc!==pc)return;
-      if(pc.connectionState==='connected')this.status('Conexão direta estabelecida.');
+      if(pc.connectionState==='connected')this.status('Conexão direta estabelecida. Pode jogar!');
       if(['failed','disconnected','closed'].includes(pc.connectionState)){
-        this.status('Conexão '+pc.connectionState+'. Se necessário, gere novos códigos.');
+        this.status('Estado WebRTC: '+pc.connectionState+'. Se falhar, reconecte e troque novos códigos.');
         if(pc.connectionState==='failed'||pc.connectionState==='closed')this.onClose?.();
       }
     };
@@ -37,7 +37,7 @@ class ChessPeer {
     if(pc.iceGatheringState==='complete')return;
     await Promise.race([
       new Promise(resolve=>{const fn=()=>{if(pc.iceGatheringState==='complete'){pc.removeEventListener('icegatheringstatechange',fn);resolve();}};pc.addEventListener('icegatheringstatechange',fn);fn();}),
-      new Promise(resolve=>setTimeout(resolve,12000))
+      new Promise(resolve=>setTimeout(resolve,18000))
     ]);
   }
   async host(network){

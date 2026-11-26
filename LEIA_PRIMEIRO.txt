@@ -1,20 +1,30 @@
-XADREZ CUSTOM FULL 1.5 — MCE1809
+XADREZ CUSTOM FULL 1.6.1 — MCE1809
 
-COMO ATUALIZAR: Extraia todos os arquivos deste ZIP e substitua os antigos na RAIZ da branch main do GitHub Pages.
-Garanta que index.html, engine.js, game.js, peer.js, style.css, sw.js, manifest.webmanifest e os PNGs estejam lado a lado.
-Se o aplicativo instalado ainda mostrar a versão antiga, abra o endereço HTTPS no navegador conectado à internet, atualize e depois feche/reabra o aplicativo. O service worker troca para o cache v15.
+Projeto web/PWA independente, com jogo e bot offline e multiplayer WebRTC direto.
 
-OFFLINE
-Após abrir online pelo menos uma vez, clique em Verificar offline e confirme a mensagem “Offline pronto”. Só então desligue a internet para testar. Bot, treino, temas já salvos e dois jogadores no mesmo aparelho não exigem internet. Não limpe os dados do navegador, pois isso remove cache e temas. Não abra index.html diretamente via file:// se desejar instalação PWA/offline confiável.
+NOVIDADES 1.6.1
+- Correção de salvamento usando IndexedDB (baseada na atualização 1.5.1).
+- Cache offline da nova versão e verificador atualizado.
+- Cronômetro de duração da partida.
+- Ajustes de interface, toque e visual do tabuleiro.
+- Som dispara ao concluir a animação; retomada de áudio melhorada.
+- Multiplayer: verificação manual de sincronização, oferta/aceite de empate e desistência.
+- Verificação dos estados anteriores e posteriores ao receber jogadas da rede.
+- Regras customizadas, Elo recreativo, quatro bots, treino e PNGs continuam.
 
-MULTIPLAYER EM 2 APARELHOS
-No hotspot, ligue o roteador Wi-Fi no A31 e conecte o A51. Ambos devem ter o app armazenado offline. Escolha 2 aparelhos → Rede local/hotspot, crie sala no A31 e gere convite. Compartilhe o código via TXT (Bluetooth/Quick Share/arquivo), importe no A51, confirme e compartilhe a resposta da mesma forma; confirme no A31. O WebRTC não exige internet para uma conexão direta LAN mas depende de ambos os navegadores e da rede permitirem ICE e conexão P2P. Não existe descoberta automática de sala.
-Pela internet, o modo experimental usa STUN público e NÃO inclui TURN ou servidor de sinalização. Pode falhar com redes restritivas ou NAT simétrico. Alguns aparelhos fecham o canal se bloquearem o navegador ou mudarem de rede.
+LIMITES IMPORTANTES
+* O jogo/bot/treino pode funcionar sem internet após pré-carregar o PWA.
+* Conectar dois celulares sem internet requer rede Wi-Fi/hotspot local e troca manual de convite e resposta WebRTC (por texto ou TXT via Quick Share/Bluetooth/outro meio).
+* Hotspot não descobre automaticamente salas. A conexão WebRTC pode falhar dependendo do navegador, da rede e das políticas do celular.
+* Em redes diferentes na internet, WebRTC pode exigir um servidor TURN; ele não está incluído. Não há matchmaking central.
+* Multiplayer não foi validado em Galaxy A31 e A51 reais: teste antes de divulgar como garantido.
+* O Elo não é oficial e é salvo localmente.
+* Dados do IndexedDB e do navegador ainda podem ser perdidos ao limpar dados ou trocar de navegador; exporte temas e partidas.
 
-ÁUDIO
-Som “tec-tec” agora dispara apenas ao terminar a animação, com proteção para disparar uma única vez. O contexto de áudio é ativado nos gestos do usuário; se estiver silencioso, toque em Testar som e verifique o volume e o modo silencioso do telefone. O navegador pode suspender áudio no fundo.
+COMO PUBLICAR
+Os arquivos devem ficar na raiz da branch main no GitHub Pages, junto de index.html. Depois de atualizar, abra a versão online para baixar o cache e reinicie o PWA.
 
-TESTES
-Sem promessa de funcionamento em todos os navegadores Android: experimente uma partida offline, o som e o multiplayer em A31/A51 antes de divulgar como função validada.
+SE O GITHUB NÃO DEIXAR SUBSTITUIR ARQUIVOS
+Há um arquivo separado ATUALIZAR_GITHUB.yml e instruções no guia COMO_ATUALIZAR_GITHUB.txt. Uma ação do GitHub poderá extrair o ZIP da atualização e fazer o commit dos arquivos novos na branch main.
 
-Crédito: MCE1809.
+Arquivos principais: index.html, engine.js, game.js, peer.js, style.css, sw.js, manifest.webmanifest, icon-192.png, icon-512.png

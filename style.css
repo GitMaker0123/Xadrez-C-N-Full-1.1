@@ -70,3 +70,16 @@ body[data-theme="neon"]{--light:#353854;--dark:#356c7b;--accent:#4fffc6}body[dat
 /* Full 1.5: estado do cache offline */
 .offline-strip{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border:1px solid #3a6d6b;background:#102b2f;color:#abf2db;border-radius:11px;padding:8px 10px;font-size:12px;margin:12px 0 0}
 .offline-strip .button{min-height:34px;padding:5px 10px;font-size:11px}
+
+/* Full 1.6.1 — experiência de partida e controles de multiplayer */
+.match-meta{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;padding:9px 12px;border:1px solid #315568;border-radius:11px;background:#102338;color:#c0d4e6;font-size:12px}
+.match-meta strong{color:#e7fff5;font-variant-numeric:tabular-nums}
+#connectionBadge{color:#83d2ca;font-weight:750}
+.peer-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
+.peer-actions .button{min-height:42px}
+.peer-actions button[hidden]{display:none}
+.button.danger-button{background:#462837;border-color:#9b5364;color:#ffdee2}
+.square{touch-action:manipulation;transition:box-shadow .12s ease,filter .12s ease}
+.square:active{filter:brightness(1.10)}
+.square.selected{outline:2px solid #ffd982;outline-offset:-2px}
+@media(max-width:420px){.peer-actions{grid-template-columns:1fr 1fr}.peer-actions .button{font-size:11px;padding:7px 5px}}

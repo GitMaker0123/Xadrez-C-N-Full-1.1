@@ -9,13 +9,13 @@
 <link rel="icon" href="./icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="./icon-192.png">
 <link rel="stylesheet" href="./style.css">
-<title>Xadrez Custom Full — MCE1809 1.4</title>
+<title>Xadrez Custom Full — MCE1809 1.6.1</title>
 </head>
 <body data-theme="madeira">
 <div class="shell">
 <header class="top">
   <div><div class="eyebrow">MCE1809 APRESENTA</div><h1>♟ Xadrez <em>Custom</em></h1><p class="subtitle">O tabuleiro é seu. As regras também.</p></div>
-  <div class="version"><span class="dot"></span> FULL 1.5 <span class="small-on-mobile">· OFFLINE</span></div>
+  <div class="version"><span class="dot"></span> FULL 1.6.1 <span class="small-on-mobile">· OFFLINE</span></div>
 </header>
 <main class="layout">
 <section class="panel gameplay" aria-label="Área do jogo">
@@ -30,7 +30,7 @@
  <div class="rating-xp"><div><strong id="xpLevel">Nível 1</strong><span id="xpText">0 / 100 XP</span></div><div class="xp-track"><div id="xpFill"></div></div><p id="eloNote">Elo local: evolua jogando contra o bot. XP por vitórias; treino e multiplayer não alteram Elo.</p></div></section>
  <section id="trainingPanel" class="training-panel" hidden><div><strong>Modo treino</strong><p>Peça uma sugestão de jogada válida. No treino você não perde pontos de Elo nem acumula XP.</p></div><div class="two-actions"><button class="button primary" id="trainingHint">Mostrar dica</button><button class="button" id="trainingClear">Limpar dica</button></div><div class="training-tip" id="trainingTip" role="status">Escolha uma peça ou peça uma dica para praticar.</div></section>
  <details id="remotePanel" class="remote-panel" hidden><summary>Multiplayer em 2 aparelhos — conectar</summary>
-   <p class="hint"><strong>Local sem internet:</strong> conecte ambos ao mesmo Wi-Fi/hotspot, com o jogo já instalado e armazenado. Compartilhe os códigos em arquivo TXT por Bluetooth, Quick Share, cabo ou outro meio local compatível. <strong>Internet:</strong> envie os códigos por mensagem. O jogo não possui servidor próprio; algumas redes podem impedir a conexão.</p>
+   <p class="hint"><strong>Local sem internet:</strong> conecte ambos ao mesmo Wi-Fi/hotspot, com o jogo já instalado e armazenado. Compartilhe os códigos em arquivo TXT por Bluetooth, Quick Share, cabo ou outro meio local compatível. <strong>Internet:</strong> envie os códigos por mensagem. O jogo não possui servidor de sinalização nem retransmissor TURN; redes restritivas podem impedir conexões pela internet.</p>
    <label>Tipo de conexão<select id="networkType"><option value="lan">Rede local / hotspot (sem internet)</option><option value="internet">Internet (experimental)</option></select></label>
    <div class="two-actions"><button class="button primary" id="hostPeer">Criar sala (brancas)</button><button class="button" id="joinPeer">Entrar na sala (pretas)</button></div>
    <label>Seu código para compartilhar<textarea id="ownSignal" readonly rows="4" placeholder="Gere uma sala ou aceite um convite..."></textarea></label>
@@ -38,12 +38,14 @@
    <div class="two-actions"><button class="button" id="downloadSignal">Baixar código TXT</button><button class="button" id="importSignal">Importar código TXT</button><input id="signalFile" type="file" accept=".txt,text/plain" hidden></div>
    <label>Código recebido do outro jogador<textarea id="peerSignal" rows="4" placeholder="Cole aqui o código que o outro jogador enviou"></textarea></label>
    <button class="button primary" id="acceptSignal">Confirmar código recebido</button>
+   <div class="peer-actions"><button class="button" id="requestSync">↻ Verificar sincronização</button><button class="button" id="offerDraw">½ Propor empate</button><button class="button" id="acceptDraw" hidden>Aceitar empate</button><button class="button danger-button" id="resignPeer">Abandonar partida</button></div>
    <button class="button" id="disconnectPeer">Desconectar</button>
    <div id="remoteStatus" class="remote-status" role="status">Desconectado. Crie uma sala ou entre em uma.</div>
-   <p class="hint">A troca é em duas etapas: anfitrião gera convite → convidado cola e gera resposta → anfitrião cola a resposta. A conexão direta usa WebRTC. As partidas entre aparelhos são amistosas e não alteram o Elo de treino.</p>
+   <p class="hint">A conexão acontece em duas etapas: anfitrião gera convite → convidado cola e gera resposta → anfitrião cola a resposta. Não é necessário digitar IP ou abrir portas manualmente. A conexão direta usa WebRTC. As partidas entre aparelhos são amistosas e não alteram o Elo de treino.</p>
  </details>
  <div class="offline-strip"><span id="offlineIndicator">Offline: verificando arquivos…</span><button id="checkOffline" class="button" type="button">Verificar offline</button></div>
  <div class="sound-toolbar"><label class="sound-switch"><input type="checkbox" id="soundEnabled" checked> <span>Som do jogo</span></label><label>Volume <input type="range" id="soundVolume" min="0" max="100" value="35" aria-label="Volume dos efeitos sonoros"></label><button class="button" id="testSound" type="button">♪ Testar som</button></div>
+ <div class="match-meta" aria-label="Informações da partida"><span><icon aria-hidden="true">◷</icon> Tempo de partida: <strong id="matchTime">00:00</strong></span><span id="connectionBadge">● Partida local</span></div>
  <div class="status" role="status" aria-live="polite"><span class="status-light"></span><strong id="status">Preparando tabuleiro…</strong></div>
  <div class="board-card"><div class="board" id="board" role="grid" aria-label="Tabuleiro de xadrez com 64 casas"></div></div>
  <div class="underboard"><span id="turnPill">Brancas começam</span><span id="lastMove">Escolha uma peça para começar.</span></div>
@@ -52,7 +54,7 @@
   <button id="undo" class="button">↶ Desfazer</button>
   <button id="flip" class="button">⇅ Virar tabuleiro</button>
  </div>
- <details class="compact" open><summary>Aparência do jogo — Full 1.5</summary><div class="controls compact-form">
+ <details class="compact" open><summary>Aparência do jogo — Full 1.6.1</summary><div class="controls compact-form">
   <label>Tabuleiro<select id="theme"><option value="madeira">Madeira</option><option value="neon">Neon</option><option value="gelo">Gelo</option><option value="custom">PNG personalizado</option></select></label>
   <label>Peças<select id="pieces"><option value="classic">Tradicionais</option><option value="cyber">Cyber / Custom</option><option value="custom">Pack PNG personalizado</option></select></label>
  </div>
@@ -107,7 +109,7 @@
   <div class="section-head"><span class="mini-label">PARTIDA</span><h2>Histórico de jogadas</h2></div>
   <ol id="history" class="history" aria-label="Jogadas feitas"></ol>
   <div class="two-actions"><button id="downloadGame" class="button">↓ Salvar partida</button><button id="loadGame" class="button">↑ Abrir partida</button><input type="file" id="fileInput" accept=".json,application/json" hidden></div>
-  <p class="hint">Seu progresso também é salvo automaticamente neste navegador.</p>
+  <p class="hint">Partidas, temas e progresso ficam neste navegador. Faça backup antes de limpar os dados.</p>
  </section>
  <section class="panel notes"><details><summary>Regras completas e limitações</summary>
  <p><strong>Xadrez clássico:</strong> movimentos tradicionais; xeque, xeque-mate, afogamento, roque, en passant, promoção escolhida, repetição tripla, 50 lances e alguns empates por material insuficiente.</p>
@@ -117,7 +119,7 @@
  </details></section>
 </aside>
 </main>
-<footer>Projeto independente de <strong>MCE1809</strong> · Xadrez Custom Full 1.5 · Feito para celular e PC · Sem anúncios ou contas</footer>
+<footer>Projeto independente de <strong>MCE1809</strong> · Xadrez Custom Full 1.6.1 · Feito para celular e PC · Sem anúncios ou contas</footer>
 </div>
 <div id="promotionModal" class="modal" hidden aria-hidden="true">
  <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="promotionTitle">
