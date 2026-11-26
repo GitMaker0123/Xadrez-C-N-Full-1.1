@@ -15,7 +15,7 @@
 <div class="shell">
 <header class="top">
   <div><div class="eyebrow">MCE1809 APRESENTA</div><h1>♟ Xadrez <em>Custom</em></h1><p class="subtitle">O tabuleiro é seu. As regras também.</p></div>
-  <div class="version"><span class="dot"></span> FULL 1.1 <span class="small-on-mobile">· OFFLINE</span></div>
+  <div class="version"><span class="dot"></span> FULL 1.2 <span class="small-on-mobile">· OFFLINE</span></div>
 </header>
 <main class="layout">
 <section class="panel gameplay" aria-label="Área do jogo">
@@ -24,6 +24,7 @@
   <label>Adversário<select id="opponent"><option value="bot">Jogar contra o bot</option><option value="local">2 jogadores no aparelho</option></select></label>
   <label id="difficultyWrap">Dificuldade do bot<select id="difficulty"><option value="1">Fácil</option><option value="2" selected>Médio</option><option value="3">Difícil</option></select></label>
  </div>
+ <div class="sound-toolbar"><label class="sound-switch"><input type="checkbox" id="soundEnabled" checked> <span>Som do jogo</span></label><label>Volume <input type="range" id="soundVolume" min="0" max="100" value="35" aria-label="Volume dos efeitos sonoros"></label><button class="button" id="testSound" type="button">♪ Testar som</button></div>
  <div class="status" role="status" aria-live="polite"><span class="status-light"></span><strong id="status">Preparando tabuleiro…</strong></div>
  <div class="board-card"><div class="board" id="board" role="grid" aria-label="Tabuleiro de xadrez com 64 casas"></div></div>
  <div class="underboard"><span id="turnPill">Brancas começam</span><span id="lastMove">Escolha uma peça para começar.</span></div>
@@ -32,7 +33,7 @@
   <button id="undo" class="button">↶ Desfazer</button>
   <button id="flip" class="button">⇅ Virar tabuleiro</button>
  </div>
- <details class="compact" open><summary>Aparência do jogo — Full 1.1</summary><div class="controls compact-form">
+ <details class="compact" open><summary>Aparência do jogo — Full 1.2</summary><div class="controls compact-form">
   <label>Tabuleiro<select id="theme"><option value="madeira">Madeira</option><option value="neon">Neon</option><option value="gelo">Gelo</option><option value="custom">PNG personalizado</option></select></label>
   <label>Peças<select id="pieces"><option value="classic">Tradicionais</option><option value="cyber">Cyber / Custom</option><option value="custom">Pack PNG personalizado</option></select></label>
  </div>
@@ -84,7 +85,7 @@
  </details></section>
 </aside>
 </main>
-<footer>Projeto independente de <strong>MCE1809</strong> · Xadrez Custom Full 1.1 · Feito para celular e PC · Sem anúncios ou contas</footer>
+<footer>Projeto independente de <strong>MCE1809</strong> · Xadrez Custom Full 1.2 · Feito para celular e PC · Sem anúncios ou contas</footer>
 </div>
 <div id="promotionModal" class="modal" hidden aria-hidden="true">
  <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="promotionTitle">

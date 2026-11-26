@@ -8,12 +8,44 @@ const ICON={
   cyber:{w:{rei:'👑',dama:'💎',torre:'🚀',bispo:'⚡',cavalo:'🦄',peao:'🛡️'},b:{rei:'💀',dama:'🔮',torre:'🛸',bispo:'🔥',cavalo:'🐉',peao:'⚔️'}}
 };
 const STORAGE='mce1809-xadrez-full-v11';
+const SOUND_STORE='mce1809-xadrez-sound-v12';
+let audioCtx=null;
+let soundConfig={enabled:true,volume:0.35};
 const APPEARANCE_DEFAULT={theme:'madeira',pieces:'classic',quickPack:'classic',boardImages:{light:'',dark:''},pieceImages:{}};
 let appearance=cloneSimple(APPEARANCE_DEFAULT);
 let mode='balanced',rules=E.preset(mode),draft=E.clone(rules),selectedPiece='torre';
 let pos=E.newPosition(),selections=[],selected=null,undoStack=[],timer=null,flipped=false,promotionPending=null,finalStatus=null;
 
 function cloneSimple(v){return JSON.parse(JSON.stringify(v));}
+function playSound(kind){
+  if(!soundConfig.enabled||soundConfig.volume<=0)return;
+  try{
+    const AudioCtx=window.AudioContext||window.webkitAudioContext;
+    if(!AudioCtx)return;
+    if(!audioCtx)audioCtx=new AudioCtx();
+    if(audioCtx.state==='suspended') audioCtx.resume().catch(()=>{});
+    const tones={move:[[350,0,0.075]],capture:[[520,0,0.075],[320,0.085,0.11]],check:[[700,0,0.11],[850,0.12,0.14]],end:[[540,0,0.11],[690,0.12,0.11],[850,0.24,0.20]],undo:[[460,0,0.065],[330,0.08,0.095]]};
+    const start=audioCtx.currentTime+0.015;
+    for(const [freq,delay,duration] of (tones[kind]||tones.move)){
+      const osc=audioCtx.createOscillator(),gain=audioCtx.createGain();
+      osc.type=kind==='capture'?'triangle':'sine';osc.frequency.setValueAtTime(freq,start+delay);
+      gain.gain.setValueAtTime(0.0001,start+delay);
+      gain.gain.exponentialRampToValueAtTime(Math.max(0.001,soundConfig.volume*0.15),start+delay+0.018);
+      gain.gain.exponentialRampToValueAtTime(0.0001,start+delay+duration);
+      osc.connect(gain);gain.connect(audioCtx.destination);
+      osc.start(start+delay);osc.stop(start+delay+duration+0.015);
+    }
+  }catch(_){ /* Áudio opcional: o jogo continua mesmo sem suporte. */ }
+}
+function saveSound(){try{localStorage.setItem(SOUND_STORE,JSON.stringify(soundConfig));}catch(_){}}
+function setupSound(){
+  try{const prev=JSON.parse(localStorage.getItem(SOUND_STORE)||'null');if(prev&&typeof prev==='object'){soundConfig.enabled=prev.enabled!==false; soundConfig.volume=Math.max(0,Math.min(1,Number(prev.volume)||0));}}catch(_){}
+  $('soundEnabled').checked=soundConfig.enabled;
+  $('soundVolume').value=String(Math.round(soundConfig.volume*100));
+  $('soundEnabled').addEventListener('change',()=>{soundConfig.enabled=$('soundEnabled').checked;saveSound();if(soundConfig.enabled)playSound('move');});
+  $('soundVolume').addEventListener('input',()=>{soundConfig.volume=Number($('soundVolume').value)/100;saveSound();});
+  $('testSound').addEventListener('click',()=>playSound('capture'));
+}
 function say(t){$('status').textContent=t;}
 function notify(t){$('feedback').textContent=t;}
 function pieceKey(color,type){return color+'_'+type;}
@@ -181,12 +213,12 @@ function choosePromotion(moves){
   $('promotionModal').hidden=false; $('promotionModal').setAttribute('aria-hidden','false'); panel.querySelector('button')?.focus();
 }
 function closePromotion(){$('promotionModal').hidden=true; $('promotionModal').setAttribute('aria-hidden','true');}
-function doMove(m){undoStack.push(E.clone(pos)); if(undoStack.length>50) undoStack.shift(); pos=E.apply(pos,m,true); selected=null; selections=[]; render(); safeSave(); if(!finalStatus.over&&$('opponent').value==='bot'&&pos.turn==='b') scheduleBot();}
+function doMove(m){const captured=!!pos.board[m.tr][m.tc]||!!m.enPassant;undoStack.push(E.clone(pos)); if(undoStack.length>50) undoStack.shift(); pos=E.apply(pos,m,true); selected=null; selections=[]; render(); playSound(finalStatus.over?'end':finalStatus.check?'check':captured?'capture':'move'); safeSave(); if(!finalStatus.over&&$('opponent').value==='bot'&&pos.turn==='b') scheduleBot();}
 function scheduleBot(){stopTimer(); say('Bot pensando…'); timer=setTimeout(()=>{timer=null; if(pos.turn!=='b'||E.result(pos,rules).over||$('opponent').value!=='bot') return; const m=E.chooseBot(pos,rules,Number($('difficulty').value)); if(m) doMove(m); else render();},180);}
 function undo(){
   stopTimer(); promotionPending=null; closePromotion(); if(!undoStack.length) return;
   let last; do{ last=undoStack.pop(); if($('opponent').value==='local'||last.turn==='w') break; }while(undoStack.length);
-  pos=last; selected=null; selections=[]; render(); safeSave(); if($('opponent').value==='bot'&&pos.turn==='b'&&!finalStatus.over) scheduleBot();
+  pos=last; selected=null; selections=[]; render(); playSound('undo'); safeSave(); if($('opponent').value==='bot'&&pos.turn==='b'&&!finalStatus.over) scheduleBot();
 }
 function setupTabs(){const root=$('tabs'); root.textContent=''; for(const type of E.TYPES){const btn=document.createElement('button'); btn.type='button'; btn.className='piece-tab'+(type===selectedPiece?' active':''); btn.textContent=E.LABELS[type]; btn.addEventListener('click',()=>{selectedPiece=type; redrawEditor();}); root.appendChild(btn);}}
 function allowedPatterns(type){return type==='rei'?['all1','orth1','diag1']:Object.keys(E.PATTERNS);}
@@ -204,6 +236,7 @@ function exportGame(){
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}); const link=document.createElement('a'); const url=URL.createObjectURL(blob); link.href=url; link.download='xadrez-mce1809-partida.json'; document.body.appendChild(link); link.click(); link.remove(); setTimeout(()=>URL.revokeObjectURL(url),1200);
 }
 function init(){
+  setupSound();
   rebuildAppearanceInputs();
   $('boardLightFile').addEventListener('change',onBoardFile); $('boardDarkFile').addEventListener('change',onBoardFile);
   $('saveAppearance').addEventListener('click',saveAppearance); $('resetAppearance').addEventListener('click',resetAppearance); $('applyQuickPack').addEventListener('click',applyQuickPack);

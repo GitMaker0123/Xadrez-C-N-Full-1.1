@@ -173,20 +173,42 @@ function minimax(p,rules,depth,alpha,beta){const moves=legalAll(p,p.turn,rules);
  }
  return best;
 }
-function chooseBot(p,rules,difficulty){const moves=legalAll(p,'b',rules);if(!moves.length)return null;
- if(difficulty===1)return moves[Math.floor(Math.random()*moves.length)];
- const candidates=orderMoves(p,moves);let best=null,bestScore=-Infinity;
- for(const m of candidates){const next=apply(p,m),reply=legalAll(next,'w',rules);
-  let val;
-  if(!reply.length)val=isCheck(next,'w',rules)?100000:0;
-  else if(difficulty===2){val=evalPos(next,rules); // cálculo de ameaça adversária
-   let worst=Infinity;for(const rm of orderMoves(next,reply).slice(0,14)){const v=evalPos(apply(next,rm),rules);worst=Math.min(worst,v);}val=0.55*val+0.45*worst;
-  }else val=minimax(next,rules,1,-Infinity,Infinity);
-  val+=Math.random()*(difficulty===2?12:1.5);
-  if(val>bestScore){bestScore=val;best=m;}
+function chooseBot(p,rules,difficulty){
+ const moves=legalAll(p,'b',rules);if(!moves.length)return null;
+ // Os três níveis incluem erros intencionais para manter partidas divertidas.
+ // Fácil: quase aleatório; Médio: prioriza capturas, mas erra regularmente;
+ // Difícil: avalia respostas, com margem para imprecisões humanas.
+ if(difficulty===1){
+   if(Math.random()<0.80)return moves[Math.floor(Math.random()*moves.length)];
+   const rated=moves.map(m=>({m,v:evalPos(apply(p,m),rules)})).sort((a,b)=>b.v-a.v);
+   return rated[Math.floor(Math.random()*Math.min(5,rated.length))].m;
  }
- return best;
+ const candidateScores=[];
+ for(const m of moves){
+   const next=apply(p,m),reply=legalAll(next,'w',rules);
+   let score=evalPos(next,rules);
+   if(!reply.length){score=isCheck(next,'w',rules)?100000:0;}
+   else if(difficulty===3){
+     let worst=Infinity;
+     for(const rm of orderMoves(next,reply).slice(0,12))worst=Math.min(worst,evalPos(apply(next,rm),rules));
+     score=score*0.35+worst*0.65;
+   }
+   candidateScores.push({m,score});
+ }
+ candidateScores.sort((a,b)=>b.score-a.score);
+ if(difficulty===2){
+   if(Math.random()<0.32)return moves[Math.floor(Math.random()*moves.length)];
+   const pool=candidateScores.slice(0,Math.min(9,candidateScores.length));
+   return pool[Math.floor(Math.random()*pool.length)].m;
+ }
+ if(Math.random()<0.18){
+   const pool=candidateScores.slice(0,Math.min(7,candidateScores.length));
+   return pool[Math.floor(Math.random()*pool.length)].m;
+ }
+ const pool=candidateScores.slice(0,Math.min(3,candidateScores.length));
+ return pool[Math.floor(Math.random()*pool.length)].m;
 }
+
 root.XadrezEngine={TYPES,LABELS,PATTERNS,CLASSIC,COUNT,PIECE_CAP,CHAOS_CAP,MATERIAL,clone,preset,limits,totalCost,validate,vector,newPosition,positionKey,square,opposite,isClassic,raw,attacked,isCheck,kingAt,canCastle,pseudoMoves,legalAt,legalAll,apply,result,chooseBot,evalPos};
 if(typeof module!=='undefined'&&module.exports)module.exports=root.XadrezEngine;
 })(typeof window!=='undefined'?window:globalThis);
