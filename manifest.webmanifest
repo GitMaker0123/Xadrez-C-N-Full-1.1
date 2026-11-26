@@ -1,0 +1,16 @@
+{
+  "name": "Xadrez Custom Full — MCE1809",
+  "short_name": "Xadrez Full",
+  "description": "Xadrez customizado e clássico, com movimentos especiais, bot e modo local para dois jogadores. Offline.",
+  "lang": "pt-BR",
+  "id": "./",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#081220",
+  "theme_color": "#0d1727",
+  "icons": [
+    {"src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"}
+  ]
+}

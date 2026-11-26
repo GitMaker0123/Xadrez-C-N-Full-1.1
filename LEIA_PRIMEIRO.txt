@@ -1,0 +1,41 @@
+XADREZ CUSTOM FULL 1.0 — MCE1809
+================================
+
+JOGAR PELO CELULAR OU COMPUTADOR (SEM INTERNET):
+1) Extraia o arquivo ZIP.
+2) Abra a pasta Xadrez_Custom_MCE1809_FULL.
+3) Toque em index.html e abra no Chrome ou em outro navegador compatível.
+4) Pronto! O jogo funciona localmente, sem conta.
+
+INSTALAR COMO APLICATIVO WEB NA TELA INICIAL:
+1) Crie um repositório PÚBLICO no seu GitHub, por exemplo Xadrez-MCE1809.
+2) Abra a pasta descompactada Xadrez_Custom_MCE1809_FULL e envie para a RAIZ do repositório TODOS os arquivos, não o ZIP e não a pasta inteira:
+   index.html, style.css, engine.js, game.js, manifest.webmanifest, sw.js, icon-192.png, icon-512.png
+3) Vá em Settings > Pages e escolha Deploy from a branch, branch main, /(root). Salve.
+4) Abra o link HTTPS apresentado pelo GitHub Pages no Chrome para Android.
+5) Menu ⋮ > Instalar app / Adicionar à tela inicial (texto depende da versão do navegador).
+6) Abra o ícone instalado uma vez conectado para deixar o jogo salvo para uso offline.
+
+ATENÇÃO: SEM PUBLICAÇÃO EM HTTPS, abrir o index.html diretamente é suficiente para jogar,
+mas a instalação como PWA e o cache offline do service worker podem não estar disponíveis.
+
+FUNCIONALIDADES:
+- Jogador contra bot (Fácil/Médio/Difícil), ou dois jogadores no mesmo aparelho.
+- Regras do xadrez tradicional, com xeque, xeque-mate, afogamento, roque, captura en passant,
+  promoção escolhida (dama, torre, bispo, cavalo), repetição tripla, regra de 50 lances
+  e empates básicos por material insuficiente no modo clássico.
+- Customização da movimentação e captura de rei, dama, torre, bispo, cavalo e peão.
+- Modos Clássico, Custom Equilibrado e Caos Controlado; limites de poder por peça e orçamento total.
+- A regra original MCE1809 para a torre (anda na diagonal; captura em linha reta) já está pronta.
+- Salvar e abrir partidas em .json; salvamento automático no próprio navegador.
+- Reverter jogada, virar tabuleiro, temas e aparência de peças.
+
+NOTAS DE REGRAS CUSTOM:
+- Roque somente quando rei e torre estão com seus movimentos/capturas originais.
+- En passant somente quando o peão tem as regras originais.
+- Promoção vale quando um peão chega à última fileira, mesmo usando regras customizadas.
+- Limites de poder são uma aproximação: não garantem equilíbrio perfeito em todos os cenários.
+- O bot é experimental e não substitui um motor profissional.
+- Não há multiplayer online nem APK neste pacote.
+
+CRÉDITOS: Projeto de MCE1809.
