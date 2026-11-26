@@ -54,6 +54,7 @@ let playerChoice='w',humanColor='w',trainingHint=null,skinSide='w';
 let savedThemes=[];
 let peer=null,peerRole=null,peerReady=false,remoteOutcome=null,drawOffered=false,drawReceived=false;
 let matchStartedAt=Date.now(),matchElapsedMs=0,matchTimerId=null;
+let creatorRulesLocked=false;
 let audioCtx=null;
 let soundConfig={enabled:true,volume:0.35};
 const APPEARANCE_DEFAULT={theme:'madeira',pieces:'classic',quickPack:'classic',boardImages:{light:'',dark:''},boardColors:{light:'#ebd7b2',dark:'#7f9785'},pieceImages:{}};
@@ -134,7 +135,7 @@ function normalizeAppearance(a){
 }
 function safeSave(){
  try{
-  const data={version:3,mode,rules,position:pos,undo:undoStack.slice(-30),opponent:$('opponent').value,difficulty:$('difficulty').value,flipped,appearance:cloneSimple(appearance),playerChoice,humanColor};
+  const data={version:3,mode,rules,matchElapsedMs:elapsedForSave(),creatorRulesLocked,position:pos,undo:undoStack.slice(-30),opponent:$('opponent').value,difficulty:$('difficulty').value,flipped,appearance:cloneSimple(appearance),playerChoice,humanColor};
   dbSaveCurrentGame(data);return true;
  }catch(err){$('appearanceSaveStatus').textContent='Falha ao preparar salvamento: '+err.message;return false;}
 }
@@ -143,6 +144,10 @@ function isValidRestore(d){
  return okVersion&&['balanced','classic','chaos'].includes(d.mode)&&!E.validate(d.rules,d.mode)&&d.position&&Array.isArray(d.position.board)&&d.position.board.length===8&&d.position.board.every(row=>Array.isArray(row)&&row.length===8&&row.every(p=>!p||E.TYPES.includes(p.type)&&['w','b'].includes(p.color)))&&['w','b'].includes(d.position.turn)&&d.position.rights&&typeof d.position.rights==='object'&&d.position.repetitions&&typeof d.position.repetitions==='object'&&Array.isArray(d.position.history)&&d.position.history.length<2000;
 }
 function stopTimer(){if(timer!==null){clearTimeout(timer);timer=null;}}
+function elapsedForSave(){
+ const running=pos.history.length>0&&!finalStatus?.over&&!remoteOutcome;
+ return Math.max(0,matchElapsedMs+(running?Date.now()-matchStartedAt:0));
+}
 function updateMatchTimer(){
   const t=$('matchTime');if(!t)return;
   const running=pos.history.length>0&&!finalStatus?.over&&!remoteOutcome;
@@ -151,6 +156,11 @@ function updateMatchTimer(){
   t.textContent=String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');
 }
 function matchTimerReset(){matchElapsedMs=0;matchStartedAt=Date.now();updateMatchTimer();}
+function beginMatchTicker(){
+ if(matchTimerId!==null)clearInterval(matchTimerId);
+ matchTimerId=setInterval(updateMatchTimer,250);
+ updateMatchTimer();
+}
 function matchTimerPause(){if(pos.history.length){matchElapsedMs+=Date.now()-matchStartedAt;}matchStartedAt=Date.now();updateMatchTimer();}
 function updateConnectionBadge(){
  const t=$('connectionBadge');if(!t)return;
@@ -334,11 +344,13 @@ function restore(d){
  $('difficulty').value=['1','2','3','4'].includes(String(d.difficulty))?String(d.difficulty):'2';
  playerChoice=['w','b','random'].includes(d.playerChoice)?d.playerChoice:'w';
  humanColor=['w','b'].includes(d.humanColor)?d.humanColor:'w';
+ creatorRulesLocked=!!d.creatorRulesLocked; matchElapsedMs=Number.isFinite(d.matchElapsedMs)?Math.max(0,d.matchElapsedMs):0;matchStartedAt=Date.now();
  $('playerColor').value=playerChoice;
- applyAppearanceToUI();ratedOnce=E.result(pos,rules).over;redrawEditor();toggleBotControl();setRemoteUI();render();
+ applyAppearanceToUI();ratedOnce=E.result(pos,rules).over;redrawEditor();toggleBotControl();setRemoteUI();render();updateMatchTimer();
  if(!E.result(pos,rules).over&&isBotMode()&&pos.turn!==humanColor)scheduleBot();
 }
 function startGame(){
+ if(mode==='chaos'&&!creatorRulesLocked&&$('opponent').value!=='remote'){rules=E.randomChaosRules();draft=E.clone(rules);redrawEditor();notify('Caos novo! Regras sorteadas para esta partida, iguais para os dois lados.');}
  for(const ghost of document.querySelectorAll('.moving-piece-ghost'))ghost.remove();
  stopTimer();matchTimerReset();remoteOutcome=null;drawOffered=false;drawReceived=false;pos=E.newPosition();undoStack=[];selected=null;selections=[];promotionPending=null;ratedOnce=false;trainingHint=null;closePromotion();
  if($('opponent').value!=='remote'){
@@ -454,7 +466,9 @@ function doMove(m,remote=false){
  const oldRect=source?.getBoundingClientRect();const oldPiece=pos.board[m.fr][m.fc]?{...pos.board[m.fr][m.fc]}:null;
  const captured=!!pos.board[m.tr][m.tc]||!!m.enPassant;
  undoStack.push(E.clone(pos));if(undoStack.length>50)undoStack.shift();
- pos=E.apply(pos,m,true);selected=null;selections=[];trainingHint=null;render();
+ pos=E.apply(pos,m,true);selected=null;selections=[];trainingHint=null;
+ if(E.result(pos,rules).over&&pos.history.length>1){matchElapsedMs+=Math.max(0,Date.now()-matchStartedAt);matchStartedAt=Date.now();}
+ render();
  const soundKind=finalStatus.over?'end':finalStatus.check?'check':captured?'capture':'move';
  if(pos.history.length===1){matchStartedAt=Date.now();matchElapsedMs=0;}updateMatchTimer();
  animateMove(m,oldPiece,oldRect,()=>playSound(soundKind));
@@ -482,12 +496,12 @@ function redrawEditor(){
   setupTabs(); selectPattern('moveRule',draft[selectedPiece].move); selectPattern('captureRule',draft[selectedPiece].cap);
   const costs=E.totalCost(draft),lim=E.limits(mode),pieceCost=E.PATTERNS[draft[selectedPiece].move].cost+E.PATTERNS[draft[selectedPiece].cap].cost;
   $('powerText').textContent=costs+' / '+lim.total; $('powerFill').style.width=Math.min(100,costs/lim.total*100)+'%'; $('powerFill').parentElement.classList.toggle('warn',costs>lim.total*.9);
-  $('piecePower').textContent='Poder da peça selecionada: '+pieceCost+' / '+lim.per[selectedPiece]; $('applyRules').disabled=mode==='classic';
+  $('piecePower').textContent='Poder da peça selecionada: '+pieceCost+' / '+lim.per[selectedPiece]; $('applyRules').disabled=mode==='classic';if($('creatorSummary'))creatorPreview();
 }
 function changeDraft(which,newValue){const updated=E.clone(draft); updated[selectedPiece][which]=newValue; const error=E.validate(updated,mode); if(error) notify(error+' Tente outro padrão ou selecione Caos controlado.'); else {draft=updated; notify('Regra aceita! Clique em Aplicar regras para iniciar com ela.');} redrawEditor();}
-function setMode(){if($('opponent').value==='remote'&&peerReady)return;mode=$('mode').value; rules=E.preset(mode); draft=E.clone(rules); notify(mode==='classic'?'Modo clássico ativado. Regras personalizadas bloqueadas.':'Agora personalize qualquer peça e clique em Aplicar regras.'); redrawEditor(); startGame();}
+function setMode(){if($('opponent').value==='remote'&&peerReady)return;mode=$('mode').value;creatorRulesLocked=false; rules=mode==='chaos'?E.randomChaosRules():E.preset(mode); draft=E.clone(rules); notify(mode==='classic'?'Modo clássico ativado. Regras personalizadas bloqueadas.':'Agora personalize qualquer peça e clique em Aplicar regras.'); redrawEditor(); startGame();}
 function exportGame(){
- const data={version:3,mode,rules,position:pos,undo:undoStack,opponent:$('opponent').value,difficulty:$('difficulty').value,flipped,appearance,playerChoice,humanColor};
+ const data={version:3,mode,rules,matchElapsedMs:elapsedForSave(),creatorRulesLocked,position:pos,undo:undoStack,opponent:$('opponent').value,difficulty:$('difficulty').value,flipped,appearance,playerChoice,humanColor};
  const blob=new Blob([JSON.stringify(data)],{type:'application/json'});const link=document.createElement('a'),url=URL.createObjectURL(blob);
  link.href=url;link.download='xadrez-mce1809-partida.json';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
@@ -663,7 +677,7 @@ function setupOfflineUI(){
    if(!('serviceWorker' in navigator)||!('caches' in window)){label.textContent='Offline: navegador sem suporte necessário';return;}
    try{
      const names=await caches.keys();
-     const cacheName=names.find(x=>x==='xadrez-mce1809-full-v161');
+     const cacheName=names.find(x=>x==='xadrez-mce1809-full-v171');
      if(!cacheName){label.textContent='Offline: preparando arquivos — mantenha esta página online';return;}
      const c=await caches.open(cacheName);
      const entries=await Promise.all(['index.html','engine.js','game.js','peer.js','style.css','manifest.webmanifest','icon-192.png','icon-512.png'].map(f=>c.match(new URL('./'+f,location.href))));
@@ -689,8 +703,40 @@ function showTrainingHint(){
  render();
 }
 function clearTrainingHint(){trainingHint=null;$('trainingTip').textContent='Dica removida. Continue praticando!';render();}
+// Modo Criador: poderes prontos são combinações reais de alcance e captura,
+// sem prometer efeitos externos ao motor de xadrez.
+const CREATOR_PRESETS={
+ spectral:{move:'diagSlide',cap:'orthSlide',name:'Torre espectral'},
+ lightning:{move:'orth2',cap:'diag2',name:'Relâmpago'},
+ camel:{move:'camel',cap:'camel',name:'Salto do camelo'},
+ lancer:{move:'orthSlide',cap:'orth1',name:'Investida'},
+ jumper:{move:'knight',cap:'knight',name:'Salto em L'},
+ sniper:{move:'orth1',cap:'diagSlide',name:'Atirador diagonal'},
+ vulnerable:{move:'orth1',cap:'diag1',name:'Passos limitados'},
+ wanderer:{move:'all1',cap:'orth1',name:'Explorador'},
+ cage:{move:'diag1',cap:'diag1',name:'Alcance curto'}
+};
+function creatorApplySelected(){
+ if(mode==='classic'){notify('Escolha Custom equilibrado ou Caos controlado para criar poderes.');return;}
+ const id=$('creatorPreset').value,rule=CREATOR_PRESETS[id];
+ if(!rule)return;
+ const next=E.clone(draft);next[selectedPiece]={move:rule.move,cap:rule.cap};
+ const err=E.validate(next,mode);
+ if(err){notify('Esta combinação excede os limites para '+E.LABELS[selectedPiece]+': '+err);return;}
+ draft=next;redrawEditor();notify('Poder '+rule.name+' aplicado no editor de '+E.LABELS[selectedPiece]+'. Use Aplicar regras para jogar.');
+}
+function creatorRandomize(){
+ if(mode!=='chaos'){$('mode').value='chaos';mode='chaos';}
+ creatorRulesLocked=false;draft=E.randomChaosRules();redrawEditor();notify('Novo conjunto aleatório pronto no editor. Clique em Aplicar regras ou Nova partida para sortear novamente.');
+}
+function creatorPreview(){
+ const t=E.TYPES.map(type=>{
+  const r=draft[type];return E.LABELS[type]+': '+E.PATTERNS[r.move].name+' / captura: '+E.PATTERNS[r.cap].name;
+ });
+ $('creatorSummary').textContent=t.join(' • ');
+}
 async function init(){
- setupSound();loadRating();bindPeerUI();setupOfflineUI();
+ setupSound();loadRating();bindPeerUI();setupOfflineUI();beginMatchTicker();
  rebuildAppearanceInputs();
  $('whiteSkinTab').addEventListener('click',()=>{skinSide='w';rebuildAppearanceInputs();});
  $('blackSkinTab').addEventListener('click',()=>{skinSide='b';rebuildAppearanceInputs();});
@@ -707,8 +753,9 @@ async function init(){
  $('exportAppearance').addEventListener('click',exportAppearance);$('importAppearance').addEventListener('click',()=>$('appearanceInput').click());
  $('appearanceInput').addEventListener('change',async ev=>{const f=ev.target.files?.[0];if(f){try{await importAppearanceFile(f);}catch(e){alert(e.message);}}ev.target.value='';});
  for(const id of ['moveRule','captureRule'])$(id).addEventListener('change',ev=>changeDraft(id==='moveRule'?'move':'cap',ev.target.value));
- $('applyRules').addEventListener('click',()=>{if($('opponent').value==='remote')return;const error=E.validate(draft,mode);if(error){notify(error);return;}rules=E.clone(draft);startGame();notify('Regras aplicadas para os dois jogadores. Boa partida!');});
- $('resetRules').addEventListener('click',()=>{draft=E.preset(mode);redrawEditor();notify('Padrão restaurado no editor. Clique em Aplicar regras para usar.');});
+ $('applyRules').addEventListener('click',()=>{if($('opponent').value==='remote')return;const error=E.validate(draft,mode);if(error){notify(error);return;}creatorRulesLocked=true;rules=E.clone(draft);startGame();notify('Regras do Criador aplicadas igualmente para os dois jogadores.');});
+ $('creatorApply').addEventListener('click',creatorApplySelected);$('creatorRandom').addEventListener('click',creatorRandomize);
+ $('resetRules').addEventListener('click',()=>{draft=mode==='chaos'?E.randomChaosRules():E.preset(mode);creatorRulesLocked=false;redrawEditor();notify('Padrão do editor restaurado. Para aplicar, clique em Aplicar regras.');});
  $('mode').addEventListener('change',setMode);
  $('opponent').addEventListener('change',()=>{if(peer){peer.close(false);peer=null;}peerReady=false;peerRole=null;toggleBotControl();setRemoteUI();startGame();});
  $('playerColor').addEventListener('change',startGame);$('difficulty').addEventListener('change',safeSave);

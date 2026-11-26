@@ -24,6 +24,24 @@ const square=(r,c)=>'abcdefgh'[c]+(8-r);
 const opposite=c=>c==='w'?'b':'w';
 function isClassic(rules){return TYPES.every(t=>rules[t].move===CLASSIC[t].move&&rules[t].cap===CLASSIC[t].cap);}
 function preset(mode){const r=clone(CLASSIC);if(mode!=='classic')r.torre={move:'diagSlide',cap:'orthSlide'};if(mode==='chaos'){r.bispo={move:'knight',cap:'diagSlide'};r.cavalo={move:'diag2',cap:'knight'};}return r;}
+// Sorteio simétrico: as duas cores recebem as mesmas regras e o orçamento é respeitado.
+function randomChaosRules(){
+ const candidates=Object.keys(PATTERNS),king=['all1','orth1','diag1'];
+ const baseline=preset('chaos');
+ for(let attempt=0;attempt<300;attempt++){
+  const r=clone(CLASSIC);
+  for(const type of TYPES){
+   const keys=type==='rei'?king:candidates;
+   const cap=limits('chaos').per[type];
+   const pairs=[];
+   for(const move of keys)for(const capture of keys)if(PATTERNS[move].cost+PATTERNS[capture].cost<=cap)pairs.push({move,cap:capture});
+   const choice=pairs[Math.floor(Math.random()*pairs.length)];
+   r[type]={move:choice.move,cap:choice.cap};
+  }
+  if(!validate(r,'chaos')&&JSON.stringify(r)!==JSON.stringify(baseline))return r;
+ }
+ return baseline;
+}
 function totalCost(r){return TYPES.reduce((n,t)=>n+COUNT[t]*(PATTERNS[r[t].move].cost+PATTERNS[r[t].cap].cost),0);}
 function limits(mode){return {total:mode==='chaos'?170:115,per:mode==='chaos'?CHAOS_CAP:PIECE_CAP};}
 function validate(r,mode){if(mode==='classic'&&!isClassic(r))return 'No modo clássico, as peças usam as regras tradicionais.';
@@ -216,6 +234,6 @@ function chooseBot(p,rules,difficulty){
  return candidates[0].m;
 }
 
-root.XadrezEngine={TYPES,LABELS,PATTERNS,CLASSIC,COUNT,PIECE_CAP,CHAOS_CAP,MATERIAL,clone,preset,limits,totalCost,validate,vector,newPosition,positionKey,square,opposite,isClassic,raw,attacked,isCheck,kingAt,canCastle,pseudoMoves,legalAt,legalAll,apply,result,chooseBot,evalPos};
+root.XadrezEngine={TYPES,LABELS,PATTERNS,CLASSIC,COUNT,PIECE_CAP,CHAOS_CAP,MATERIAL,clone,preset,randomChaosRules,limits,totalCost,validate,vector,newPosition,positionKey,square,opposite,isClassic,raw,attacked,isCheck,kingAt,canCastle,pseudoMoves,legalAt,legalAll,apply,result,chooseBot,evalPos};
 if(typeof module!=='undefined'&&module.exports)module.exports=root.XadrezEngine;
 })(typeof window!=='undefined'?window:globalThis);

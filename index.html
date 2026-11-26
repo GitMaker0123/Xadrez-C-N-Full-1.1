@@ -1,133 +1,152 @@
-<!doctype html>
+<!DOCTYPE html>
+
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0d1727">
-<meta name="description" content="Xadrez Custom Full de MCE1809: jogue xadrez completo ou crie movimentos e capturas customizados, contra bot ou com um amigo, mesmo offline.">
-<link rel="manifest" href="./manifest.webmanifest">
-<link rel="icon" href="./icon-192.png" type="image/png">
-<link rel="apple-touch-icon" href="./icon-192.png">
-<link rel="stylesheet" href="./style.css">
-<title>Xadrez Custom Full — MCE1809 1.6.1</title>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport"/>
+<meta content="#0d1727" name="theme-color"/>
+<meta content="Xadrez Custom Full de MCE1809: jogue xadrez completo ou crie movimentos e capturas customizados, contra bot ou com um amigo, mesmo offline." name="description"/>
+<link href="./manifest.webmanifest" rel="manifest"/>
+<link href="./icon-192.png" rel="icon" type="image/png"/>
+<link href="./icon-192.png" rel="apple-touch-icon"/>
+<link href="./style.css" rel="stylesheet"/>
+<title>Xadrez Custom Full — MCE1809 1.7.2</title>
 </head>
 <body data-theme="madeira">
 <div class="shell">
 <header class="top">
-  <div><div class="eyebrow">MCE1809 APRESENTA</div><h1>♟ Xadrez <em>Custom</em></h1><p class="subtitle">O tabuleiro é seu. As regras também.</p></div>
-  <div class="version"><span class="dot"></span> FULL 1.6.1 <span class="small-on-mobile">· OFFLINE</span></div>
+<div><div class="eyebrow">MCE1809 APRESENTA</div><h1>♟ Xadrez <em>Custom</em></h1><p class="subtitle">O tabuleiro é seu. As regras também.</p></div>
+<div class="version">● FULL 1.7.2 · OFFLINE</div>
 </header>
 <main class="layout">
-<section class="panel gameplay" aria-label="Área do jogo">
- <div class="controls">
-  <label>Regras do jogo<select id="mode"><option value="balanced">Custom equilibrado</option><option value="classic">Xadrez clássico</option><option value="chaos">Caos controlado</option></select></label>
-  <label>Adversário<select id="opponent"><option value="bot">Jogar contra o bot</option><option value="training">Treino com dicas</option><option value="local">2 jogadores no aparelho</option><option value="remote">2 aparelhos (rede/internet)</option></select></label>
-  <label id="playerColorWrap">Minha cor / orientação<select id="playerColor"><option value="w">Brancas</option><option value="b">Pretas</option><option value="random">Aleatória a cada nova partida</option></select></label>
-  <label id="difficultyWrap">Dificuldade do bot<select id="difficulty"><option value="1">Fácil</option><option value="2" selected>Médio</option><option value="3">Difícil</option><option value="4">Muito difícil</option></select></label>
- </div>
- <p class="color-note" id="colorResolved">Você joga com as brancas. As brancas começam.</p>
- <section class="rating-strip" aria-label="Progresso do jogador"><div><span class="mini-label">SEU ELO RECREATIVO</span><strong id="eloValue">600</strong></div><div><span class="mini-label">FAIXA DE ELO</span><strong id="levelName">Iniciante</strong></div><div><span class="mini-label">PARTIDAS CONTRA BOT</span><strong id="recordText">0V · 0E · 0D</strong></div>
- <div class="rating-xp"><div><strong id="xpLevel">Nível 1</strong><span id="xpText">0 / 100 XP</span></div><div class="xp-track"><div id="xpFill"></div></div><p id="eloNote">Elo local: evolua jogando contra o bot. XP por vitórias; treino e multiplayer não alteram Elo.</p></div></section>
- <section id="trainingPanel" class="training-panel" hidden><div><strong>Modo treino</strong><p>Peça uma sugestão de jogada válida. No treino você não perde pontos de Elo nem acumula XP.</p></div><div class="two-actions"><button class="button primary" id="trainingHint">Mostrar dica</button><button class="button" id="trainingClear">Limpar dica</button></div><div class="training-tip" id="trainingTip" role="status">Escolha uma peça ou peça uma dica para praticar.</div></section>
- <details id="remotePanel" class="remote-panel" hidden><summary>Multiplayer em 2 aparelhos — conectar</summary>
-   <p class="hint"><strong>Local sem internet:</strong> conecte ambos ao mesmo Wi-Fi/hotspot, com o jogo já instalado e armazenado. Compartilhe os códigos em arquivo TXT por Bluetooth, Quick Share, cabo ou outro meio local compatível. <strong>Internet:</strong> envie os códigos por mensagem. O jogo não possui servidor de sinalização nem retransmissor TURN; redes restritivas podem impedir conexões pela internet.</p>
-   <label>Tipo de conexão<select id="networkType"><option value="lan">Rede local / hotspot (sem internet)</option><option value="internet">Internet (experimental)</option></select></label>
-   <div class="two-actions"><button class="button primary" id="hostPeer">Criar sala (brancas)</button><button class="button" id="joinPeer">Entrar na sala (pretas)</button></div>
-   <label>Seu código para compartilhar<textarea id="ownSignal" readonly rows="4" placeholder="Gere uma sala ou aceite um convite..."></textarea></label>
-   <div class="two-actions"><button class="button" id="copySignal">Copiar código</button><button class="button" id="shareSignal">Compartilhar código</button></div>
-   <div class="two-actions"><button class="button" id="downloadSignal">Baixar código TXT</button><button class="button" id="importSignal">Importar código TXT</button><input id="signalFile" type="file" accept=".txt,text/plain" hidden></div>
-   <label>Código recebido do outro jogador<textarea id="peerSignal" rows="4" placeholder="Cole aqui o código que o outro jogador enviou"></textarea></label>
-   <button class="button primary" id="acceptSignal">Confirmar código recebido</button>
-   <div class="peer-actions"><button class="button" id="requestSync">↻ Verificar sincronização</button><button class="button" id="offerDraw">½ Propor empate</button><button class="button" id="acceptDraw" hidden>Aceitar empate</button><button class="button danger-button" id="resignPeer">Abandonar partida</button></div>
-   <button class="button" id="disconnectPeer">Desconectar</button>
-   <div id="remoteStatus" class="remote-status" role="status">Desconectado. Crie uma sala ou entre em uma.</div>
-   <p class="hint">A conexão acontece em duas etapas: anfitrião gera convite → convidado cola e gera resposta → anfitrião cola a resposta. Não é necessário digitar IP ou abrir portas manualmente. A conexão direta usa WebRTC. As partidas entre aparelhos são amistosas e não alteram o Elo de treino.</p>
- </details>
- <div class="offline-strip"><span id="offlineIndicator">Offline: verificando arquivos…</span><button id="checkOffline" class="button" type="button">Verificar offline</button></div>
- <div class="sound-toolbar"><label class="sound-switch"><input type="checkbox" id="soundEnabled" checked> <span>Som do jogo</span></label><label>Volume <input type="range" id="soundVolume" min="0" max="100" value="35" aria-label="Volume dos efeitos sonoros"></label><button class="button" id="testSound" type="button">♪ Testar som</button></div>
- <div class="match-meta" aria-label="Informações da partida"><span><icon aria-hidden="true">◷</icon> Tempo de partida: <strong id="matchTime">00:00</strong></span><span id="connectionBadge">● Partida local</span></div>
- <div class="status" role="status" aria-live="polite"><span class="status-light"></span><strong id="status">Preparando tabuleiro…</strong></div>
- <div class="board-card"><div class="board" id="board" role="grid" aria-label="Tabuleiro de xadrez com 64 casas"></div></div>
- <div class="underboard"><span id="turnPill">Brancas começam</span><span id="lastMove">Escolha uma peça para começar.</span></div>
- <div class="actionbar">
-  <button id="restart" class="button primary">↻ Nova partida</button>
-  <button id="undo" class="button">↶ Desfazer</button>
-  <button id="flip" class="button">⇅ Virar tabuleiro</button>
- </div>
- <details class="compact" open><summary>Aparência do jogo — Full 1.6.1</summary><div class="controls compact-form">
-  <label>Tabuleiro<select id="theme"><option value="madeira">Madeira</option><option value="neon">Neon</option><option value="gelo">Gelo</option><option value="custom">PNG personalizado</option></select></label>
-  <label>Peças<select id="pieces"><option value="classic">Tradicionais</option><option value="cyber">Cyber / Custom</option><option value="custom">Pack PNG personalizado</option></select></label>
- </div>
- <div class="appearance-note">Escolha cores, altere peças com PNGs e guarde vários visuais diferentes. O tema não muda as regras nem a dificuldade.</div>
- <div class="appearance-card theme-library">
-   <strong>Meus temas salvos</strong>
-   <p class="hint">Cada tema deve ser diferente do visual padrão e dos temas já existentes. Você pode renomear, carregar ou excluir.</p>
-   <label>Tema salvo<select id="savedThemeSelect"><option value="">Nenhum tema salvo</option></select></label>
-   <label>Nome do tema<input id="customThemeName" type="text" maxlength="50" placeholder="Tema Custom #1"></label>
-   <div class="theme-buttons"><button class="button primary" id="saveCustomTheme" type="button">+ Salvar tema novo</button><button class="button" id="loadCustomTheme" type="button">Carregar</button><button class="button" id="renameCustomTheme" type="button">Renomear</button><button class="button" id="deleteCustomTheme" type="button">Excluir</button></div>
-   <p class="theme-note" id="themeLibraryStatus" role="status">Nenhum tema salvo ainda.</p>
- </div>
- <div class="appearance-grid">
-   <div class="appearance-card">
-     <strong>Biblioteca rápida</strong>
-     <div class="controls compact-form skin-row">
-       <label>Pack pronto<select id="quickPack"><option value="classic">Tradicional</option><option value="cyber">Cyber</option></select></label>
-       <label>&nbsp;<button id="applyQuickPack" class="button small">Aplicar pack</button></label>
-     </div>
-   </div>
-   <div class="appearance-card">
-     <strong>Cor das casas ou PNG</strong>
-     <div class="board-colors"><label>Casa clara<input type="color" id="boardLightColor" value="#ebd7b2"></label><label>Casa escura<input type="color" id="boardDarkColor" value="#7f9785"></label></div>
-     <div class="file-grid board-file-grid">
-       <label>Casa clara PNG<input type="file" id="boardLightFile" data-kind="light" accept="image/png,image/*"><div class="preview-chip" id="preview_board_light"></div></label>
-       <label>Casa escura PNG<input type="file" id="boardDarkFile" data-kind="dark" accept="image/png,image/*"><div class="preview-chip" id="preview_board_dark"></div></label>
-     </div>
-   </div>
-   <div class="appearance-card">
-     <strong>Peças por PNG</strong>
-     <div class="appearance-side-select"><button type="button" class="button primary" id="whiteSkinTab">Brancas</button><button type="button" class="button" id="blackSkinTab">Pretas</button></div>
-     <p class="hint">Cada PNG substitui todos os exemplares daquela peça e cor; suas regras de movimento não mudam.</p>
-     <div id="piecePackInputs" class="piece-pack-grid"></div>
-   </div>
- </div>
- <div class="two-actions appearance-actions"><button id="saveAppearance" class="button primary">Salvar aparência</button><button id="resetAppearance" class="button">Restaurar aparência padrão</button></div>
- <div class="two-actions appearance-actions"><button id="exportAppearance" class="button">↓ Exportar pack (.json)</button><button id="importAppearance" class="button">↑ Importar pack (.json)</button><input type="file" id="appearanceInput" accept=".json,application/json" hidden></div>
- <p class="appearance-warning" id="appearanceSaveStatus">Temas são salvos apenas neste navegador. Exporte os packs PNG como cópia de segurança; limpar os dados do navegador pode apagá-los.</p>
+<section aria-label="Área do jogo" class="panel gameplay">
+
+<p class="color-note" id="colorResolved">Você joga com as brancas. As brancas começam.</p>
+
+<section class="training-panel" hidden="" id="trainingPanel"><div><strong>Modo treino</strong><p>Peça uma sugestão de jogada válida. No treino você não perde pontos de Elo nem acumula XP.</p></div><div class="two-actions"><button class="button primary" id="trainingHint">Mostrar dica</button><button class="button" id="trainingClear">Limpar dica</button></div><div class="training-tip" id="trainingTip" role="status">Escolha uma peça ou peça uma dica para praticar.</div></section>
+<details class="remote-panel" hidden="" id="remotePanel"><summary>Multiplayer em 2 aparelhos — conectar</summary>
+<p class="hint"><strong>Local sem internet:</strong> conecte ambos ao mesmo Wi-Fi/hotspot, com o jogo já instalado e armazenado. Compartilhe os códigos em arquivo TXT por Bluetooth, Quick Share, cabo ou outro meio local compatível. <strong>Internet:</strong> envie os códigos por mensagem. O jogo não possui servidor de sinalização nem retransmissor TURN; redes restritivas podem impedir conexões pela internet.</p>
+<label>Tipo de conexão<select id="networkType"><option value="lan">Rede local / hotspot (sem internet)</option><option value="internet">Internet (experimental)</option></select></label>
+<div class="two-actions"><button class="button primary" id="hostPeer">Criar sala (brancas)</button><button class="button" id="joinPeer">Entrar na sala (pretas)</button></div>
+<label>Seu código para compartilhar<textarea id="ownSignal" placeholder="Gere uma sala ou aceite um convite..." readonly="" rows="4"></textarea></label>
+<div class="two-actions"><button class="button" id="copySignal">Copiar código</button><button class="button" id="shareSignal">Compartilhar código</button></div>
+<div class="two-actions"><button class="button" id="downloadSignal">Baixar código TXT</button><button class="button" id="importSignal">Importar código TXT</button><input accept=".txt,text/plain" hidden="" id="signalFile" type="file"/></div>
+<label>Código recebido do outro jogador<textarea id="peerSignal" placeholder="Cole aqui o código que o outro jogador enviou" rows="4"></textarea></label>
+<button class="button primary" id="acceptSignal">Confirmar código recebido</button>
+<div class="peer-actions"><button class="button" id="requestSync">↻ Verificar sincronização</button><button class="button" id="offerDraw">½ Propor empate</button><button class="button" hidden="" id="acceptDraw">Aceitar empate</button><button class="button danger-button" id="resignPeer">Abandonar partida</button></div>
+<button class="button" id="disconnectPeer">Desconectar</button>
+<div class="remote-status" id="remoteStatus" role="status">Desconectado. Crie uma sala ou entre em uma.</div>
+<p class="hint">A conexão acontece em duas etapas: anfitrião gera convite → convidado cola e gera resposta → anfitrião cola a resposta. Não é necessário digitar IP ou abrir portas manualmente. A conexão direta usa WebRTC. As partidas entre aparelhos são amistosas e não alteram o Elo de treino.</p>
 </details>
+
+
+<div aria-label="Informações da partida" class="match-meta"><span><icon aria-hidden="true">◷</icon> Tempo de partida: <strong id="matchTime">00:00</strong></span><span id="connectionBadge">● Partida local</span></div>
+<div aria-label="Menu compacto do jogo" class="menu-grid"><details class="mini-panel game-options"><summary>♟ Partida e regras</summary><div class="controls">
+<label>Regras do jogo<select id="mode"><option value="balanced">Custom equilibrado</option><option value="classic">Xadrez clássico</option><option value="chaos">Caos controlado</option></select></label>
+<label>Adversário<select id="opponent"><option value="bot">Jogar contra o bot</option><option value="training">Treino com dicas</option><option value="local">2 jogadores no aparelho</option><option value="remote">2 aparelhos (rede/internet)</option></select></label>
+<label id="playerColorWrap">Minha cor / orientação<select id="playerColor"><option value="w">Brancas</option><option value="b">Pretas</option><option value="random">Aleatória a cada nova partida</option></select></label>
+<label id="difficultyWrap">Dificuldade do bot<select id="difficulty"><option value="1">Fácil</option><option selected="" value="2">Médio</option><option value="3">Difícil</option><option value="4">Muito difícil</option></select></label>
+</div></details><details class="mini-panel progress-options"><summary>★ Perfil e evolução</summary><section aria-label="Progresso do jogador" class="rating-strip"><div><span class="mini-label">SEU ELO RECREATIVO</span><strong id="eloValue">600</strong></div><div><span class="mini-label">FAIXA DE ELO</span><strong id="levelName">Iniciante</strong></div><div><span class="mini-label">PARTIDAS CONTRA BOT</span><strong id="recordText">0V · 0E · 0D</strong></div>
+<div class="rating-xp"><div><strong id="xpLevel">Nível 1</strong><span id="xpText">0 / 100 XP</span></div><div class="xp-track"><div id="xpFill"></div></div><p id="eloNote">Elo local: evolua jogando contra o bot. XP por vitórias; treino e multiplayer não alteram Elo.</p></div></section></details><details class="mini-panel audio-options"><summary>♫ Áudio</summary><div class="sound-toolbar"><label class="sound-switch"><input checked="" id="soundEnabled" type="checkbox"/> <span>Som do jogo</span></label><label>Volume <input aria-label="Volume dos efeitos sonoros" id="soundVolume" max="100" min="0" type="range" value="35"/></label><button class="button" id="testSound" type="button">♪ Testar som</button></div></details><details class="mini-panel offline-options"><summary>⌁ Jogar offline</summary><div class="offline-strip"><span id="offlineIndicator">Offline: verificando arquivos…</span><button class="button" id="checkOffline" type="button">Verificar offline</button></div></details><details class="mini-panel settings-options"><summary>⚙ Configurações</summary><div class="settings-form"><label>Idioma da interface<select id="uiLanguage"><option value="pt">Português</option><option value="en">English (beta)</option></select></label><label>Aparência da interface<select id="uiTheme"><option value="dark">Escuro</option><option value="light">Claro</option></select></label><label>Nome do jogador (perfil local)<input autocomplete="off" id="localNickname" maxlength="28" placeholder="MCE1809" type="text"/></label><button class="button primary" id="savePreferences" type="button">Salvar configurações</button><p class="hint" id="settingsStatus" role="status">Preferências salvas neste navegador.</p><div class="account-note"><strong>Login online</strong><p>Em desenvolvimento. Seu perfil atual é local e não sincroniza dados entre aparelhos. Não insira senhas aqui.</p></div></div></details></div><div aria-live="polite" class="status" role="status"><span class="status-light"></span><strong id="status">Preparando tabuleiro…</strong></div>
+<div class="board-card"><div aria-label="Tabuleiro de xadrez com 64 casas" class="board" id="board" role="grid"></div></div>
+<div class="underboard"><span id="turnPill">Brancas começam</span><span id="lastMove">Escolha uma peça para começar.</span></div>
+<div class="actionbar">
+<button class="button primary" id="restart">↻ Nova partida</button>
+<button class="button" id="undo">↶ Desfazer</button>
+<button class="button" id="flip">⇅ Virar tabuleiro</button>
+</div>
+
 </section>
-<aside class="side">
- <section class="panel editor" aria-label="Editor de regras">
-   <div class="section-head"><span class="mini-label">LABORATÓRIO</span><h2>Crie suas próprias regras</h2><p>Escolha qualquer peça e defina <strong>como anda</strong> e <strong>como captura</strong>. As regras são iguais para brancas e pretas.</p></div>
-   <div id="tabs" class="piece-tabs" role="group" aria-label="Escolher tipo de peça"></div>
-   <div class="rule-fields"><label>Movimentação<select id="moveRule"></select></label><label>Captura<select id="captureRule"></select></label></div>
-   <div class="power-card"><div class="power-line"><span>Orçamento de poderes</span><strong id="powerText">—</strong></div><div class="meter"><div id="powerFill"></div></div><p id="piecePower">—</p></div>
-   <div id="feedback" class="feedback" role="status" aria-live="polite">Selecione as regras que deseja usar.</div>
-   <div class="two-actions"><button class="button primary" id="applyRules">Aplicar regras</button><button class="button" id="resetRules">Restaurar padrão</button></div>
-   <div class="example"><strong>Ideia original de MCE1809</strong><p>A torre customizada anda nas diagonais e captura nas linhas horizontais e verticais. O modo clássico mantém a torre tradicional.</p></div>
- </section>
- <section class="panel scorepanel">
-  <div class="section-head"><span class="mini-label">PARTIDA</span><h2>Histórico de jogadas</h2></div>
-  <ol id="history" class="history" aria-label="Jogadas feitas"></ol>
-  <div class="two-actions"><button id="downloadGame" class="button">↓ Salvar partida</button><button id="loadGame" class="button">↑ Abrir partida</button><input type="file" id="fileInput" accept=".json,application/json" hidden></div>
-  <p class="hint">Partidas, temas e progresso ficam neste navegador. Faça backup antes de limpar os dados.</p>
- </section>
- <section class="panel notes"><details><summary>Regras completas e limitações</summary>
- <p><strong>Xadrez clássico:</strong> movimentos tradicionais; xeque, xeque-mate, afogamento, roque, en passant, promoção escolhida, repetição tripla, 50 lances e alguns empates por material insuficiente.</p>
- <p><strong>Custom:</strong> cada tipo pode receber movimentos e capturas distintos, com limites por peça e limite total. O rei não pode saltar nem fazer movimentos ilimitados. Roque só fica disponível quando rei e torre usam seus padrões clássicos; en passant requer peão clássico. Promoção funciona para peões que chegam à última fileira.</p>
- <p><strong>Bot:</strong> quatro níveis locais, para brancas ou pretas; é um adversário simples, não um motor de xadrez profissional. O modo difícil analisa respostas, mas não calcula tantas jogadas quanto um motor especializado.</p>
- <p>O jogo instalado e completamente armazenado funciona offline contra o bot, no treino e no mesmo aparelho. Dois dispositivos no mesmo Wi-Fi/hotspot podem tentar conectar diretamente sem internet por WebRTC, mas precisam trocar códigos por um meio local; a internet permite tentativas de conexão entre redes diferentes e pode exigir retransmissor TURN (não incluído). Para instalar como aplicativo web, publique os arquivos em HTTPS (por exemplo, GitHub Pages).</p>
- </details></section>
+<aside class="side"><details class="compact appearance-nav"><summary>Aparência do jogo — Full 1.7.1</summary><div class="controls compact-form">
+<label>Tabuleiro<select id="theme"><option value="madeira">Madeira</option><option value="neon">Neon</option><option value="gelo">Gelo</option><option value="custom">PNG personalizado</option></select></label>
+<label>Peças<select id="pieces"><option value="classic">Tradicionais</option><option value="cyber">Cyber / Custom</option><option value="custom">Pack PNG personalizado</option></select></label>
+</div>
+<div class="appearance-note">Escolha cores, altere peças com PNGs e guarde vários visuais diferentes. O tema não muda as regras nem a dificuldade.</div>
+<div class="appearance-card theme-library">
+<strong>Meus temas salvos</strong>
+<p class="hint">Cada tema deve ser diferente do visual padrão e dos temas já existentes. Você pode renomear, carregar ou excluir.</p>
+<label>Tema salvo<select id="savedThemeSelect"><option value="">Nenhum tema salvo</option></select></label>
+<label>Nome do tema<input id="customThemeName" maxlength="50" placeholder="Tema Custom #1" type="text"/></label>
+<div class="theme-buttons"><button class="button primary" id="saveCustomTheme" type="button">+ Salvar tema novo</button><button class="button" id="loadCustomTheme" type="button">Carregar</button><button class="button" id="renameCustomTheme" type="button">Renomear</button><button class="button" id="deleteCustomTheme" type="button">Excluir</button></div>
+<p class="theme-note" id="themeLibraryStatus" role="status">Nenhum tema salvo ainda.</p>
+</div>
+<div class="appearance-grid">
+<div class="appearance-card">
+<strong>Biblioteca rápida</strong>
+<div class="controls compact-form skin-row">
+<label>Pack pronto<select id="quickPack"><option value="classic">Tradicional</option><option value="cyber">Cyber</option></select></label>
+<label> <button class="button small" id="applyQuickPack">Aplicar pack</button></label>
+</div>
+</div>
+<div class="appearance-card">
+<strong>Cor das casas ou PNG</strong>
+<div class="board-colors"><label>Casa clara<input id="boardLightColor" type="color" value="#ebd7b2"/></label><label>Casa escura<input id="boardDarkColor" type="color" value="#7f9785"/></label></div>
+<div class="file-grid board-file-grid">
+<label>Casa clara PNG<input accept="image/png,image/*" data-kind="light" id="boardLightFile" type="file"/><div class="preview-chip" id="preview_board_light"></div></label>
+<label>Casa escura PNG<input accept="image/png,image/*" data-kind="dark" id="boardDarkFile" type="file"/><div class="preview-chip" id="preview_board_dark"></div></label>
+</div>
+</div>
+<div class="appearance-card">
+<strong>Peças por PNG</strong>
+<div class="appearance-side-select"><button class="button primary" id="whiteSkinTab" type="button">Brancas</button><button class="button" id="blackSkinTab" type="button">Pretas</button></div>
+<p class="hint">Cada PNG substitui todos os exemplares daquela peça e cor; suas regras de movimento não mudam.</p>
+<div class="piece-pack-grid" id="piecePackInputs"></div>
+</div>
+</div>
+<div class="two-actions appearance-actions"><button class="button primary" id="saveAppearance">Salvar aparência</button><button class="button" id="resetAppearance">Restaurar aparência padrão</button></div>
+<div class="two-actions appearance-actions"><button class="button" id="exportAppearance">↓ Exportar pack (.json)</button><button class="button" id="importAppearance">↑ Importar pack (.json)</button><input accept=".json,application/json" hidden="" id="appearanceInput" type="file"/></div>
+<p class="appearance-warning" id="appearanceSaveStatus">Temas são salvos apenas neste navegador. Exporte os packs PNG como cópia de segurança; limpar os dados do navegador pode apagá-los.</p>
+</details>
+<details class="mini-panel creator-options"><summary>✦ Modo Criador e poderes</summary><section aria-label="Editor de regras" class="editor">
+<div class="section-head"><span class="mini-label">LABORATÓRIO</span><h2>Crie suas próprias regras</h2><p>Escolha qualquer peça e defina <strong>como anda</strong> e <strong>como captura</strong>. As regras são iguais para brancas e pretas. No Caos Controlado elas mudam a cada nova partida, salvo quando você fixa regras próprias.</p></div>
+<div aria-label="Escolher tipo de peça" class="piece-tabs" id="tabs" role="group"></div>
+<div class="creator-card">
+<strong>⚡ Modo Criador — Poderes e limitações</strong>
+<p>Escolha uma peça acima e monte poderes prontos que mudam o alcance e a captura. O limite por peça e o orçamento total continuam valendo.</p>
+<label>Mecânica pronta<select id="creatorPreset">
+<option value="spectral">Torre espectral — anda diagonal, captura em linha reta</option>
+<option value="lightning">Relâmpago — salto reto/diagonal</option>
+<option value="camel">Salto do camelo — 3 × 1</option>
+<option value="lancer">Investida — avança reto, captura próxima</option>
+<option value="jumper">Salto em L — cavalo</option>
+<option value="sniper">Atirador — captura diagonal de longe</option>
+<option value="vulnerable">Passos limitados — curto alcance</option>
+<option value="wanderer">Explorador — movimento livre curto</option>
+<option value="cage">Alcance mínimo — diagonais curtas</option>
+</select></label>
+<div class="two-actions"><button class="button" id="creatorApply" type="button">Adicionar poder à peça</button><button class="button primary" id="creatorRandom" type="button">🎲 Sortear caos novo</button></div>
+<details class="creator-details"><summary>Ver todas as regras atuais</summary><p id="creatorSummary">Escolha um modo para começar.</p></details>
+<p class="hint">No Caos Controlado, cada nova partida sorteia combinações para ambos os lados. Se aplicar regras próprias, elas ficam fixas até você voltar a sortear.</p>
+</div>
+<div class="rule-fields"><label>Movimentação<select id="moveRule"></select></label><label>Captura<select id="captureRule"></select></label></div>
+<div class="power-card"><div class="power-line"><span>Orçamento de poderes</span><strong id="powerText">—</strong></div><div class="meter"><div id="powerFill"></div></div><p id="piecePower">—</p></div>
+<div aria-live="polite" class="feedback" id="feedback" role="status">Selecione as regras que deseja usar.</div>
+<div class="two-actions"><button class="button primary" id="applyRules">Aplicar regras</button><button class="button" id="resetRules">Restaurar padrão</button></div>
+<div class="example"><strong>Ideia original de MCE1809</strong><p>A torre customizada anda nas diagonais e captura nas linhas horizontais e verticais. O modo clássico mantém a torre tradicional.</p></div>
+</section></details>
+<details class="mini-panel history-options"><summary>▤ Histórico e partidas</summary><section class="scorepanel">
+<div class="section-head"><span class="mini-label">PARTIDA</span><h2>Histórico de jogadas</h2></div>
+<ol aria-label="Jogadas feitas" class="history" id="history"></ol>
+<div class="two-actions"><button class="button" id="downloadGame">↓ Salvar partida</button><button class="button" id="loadGame">↑ Abrir partida</button><input accept=".json,application/json" hidden="" id="fileInput" type="file"/></div>
+<p class="hint">Partidas, temas e progresso ficam neste navegador. Faça backup antes de limpar os dados.</p>
+</section></details>
+<section class="panel notes notes-card"><details><summary>Regras completas e limitações</summary>
+<p><strong>Xadrez clássico:</strong> movimentos tradicionais; xeque, xeque-mate, afogamento, roque, en passant, promoção escolhida, repetição tripla, 50 lances e alguns empates por material insuficiente.</p>
+<p><strong>Custom:</strong> cada tipo pode receber movimentos e capturas distintos, com limites por peça e limite total. O rei não pode saltar nem fazer movimentos ilimitados. Roque só fica disponível quando rei e torre usam seus padrões clássicos; en passant requer peão clássico. Promoção funciona para peões que chegam à última fileira.</p>
+<p><strong>Bot:</strong> quatro níveis locais, para brancas ou pretas; é um adversário simples, não um motor de xadrez profissional. O modo difícil analisa respostas, mas não calcula tantas jogadas quanto um motor especializado.</p>
+<p>O jogo instalado e completamente armazenado funciona offline contra o bot, no treino e no mesmo aparelho. Dois dispositivos no mesmo Wi-Fi/hotspot podem tentar conectar diretamente sem internet por WebRTC, mas precisam trocar códigos por um meio local; a internet permite tentativas de conexão entre redes diferentes e pode exigir retransmissor TURN (não incluído). Para instalar como aplicativo web, publique os arquivos em HTTPS (por exemplo, GitHub Pages).</p>
+</details></section>
 </aside>
 </main>
-<footer>Projeto independente de <strong>MCE1809</strong> · Xadrez Custom Full 1.6.1 · Feito para celular e PC · Sem anúncios ou contas</footer>
+<footer>Projeto independente de MCE1809 · Xadrez Custom Full 1.7.2 · Celular e PC</footer>
 </div>
-<div id="promotionModal" class="modal" hidden aria-hidden="true">
- <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="promotionTitle">
-  <h2 id="promotionTitle">Promova seu peão</h2><p>Escolha em qual peça o peão vai se transformar.</p><div class="promotion-options" id="promotionOptions"></div>
- </div>
+<div aria-hidden="true" class="modal" hidden="" id="promotionModal">
+<div aria-labelledby="promotionTitle" aria-modal="true" class="modal-dialog" role="dialog">
+<h2 id="promotionTitle">Promova seu peão</h2><p>Escolha em qual peça o peão vai se transformar.</p><div class="promotion-options" id="promotionOptions"></div>
+</div>
 </div>
 <script src="./engine.js"></script>
 <script src="./peer.js"></script>
-<script src="./game.js"></script>
+<script src="./settings.js"></script><script src="./game.js"></script>
 </body>
 </html>

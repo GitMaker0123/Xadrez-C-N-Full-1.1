@@ -83,3 +83,47 @@ body[data-theme="neon"]{--light:#353854;--dark:#356c7b;--accent:#4fffc6}body[dat
 .square:active{filter:brightness(1.10)}
 .square.selected{outline:2px solid #ffd982;outline-offset:-2px}
 @media(max-width:420px){.peer-actions{grid-template-columns:1fr 1fr}.peer-actions .button{font-size:11px;padding:7px 5px}}
+
+/* Full 1.7.1 — Laboratório do criador */
+.creator-card{background:linear-gradient(135deg,#20233f,#102b3a);border:1px solid #6976ae;border-radius:13px;padding:14px;margin:12px 0;color:#eef6ff}
+.creator-card strong{display:block;font-size:15px;margin-bottom:7px;color:#f8e4a3}
+.creator-card p{font-size:12px;color:#bcc9df;line-height:1.5}
+.creator-card label{display:block;margin:10px 0}.creator-card select{max-width:100%;white-space:normal}.creator-card .two-actions{margin-top:12px}
+.creator-details{padding:11px 0 0}.creator-details p{overflow-wrap:anywhere}
+@media(max-width:400px){.creator-card .two-actions{grid-template-columns:1fr}}
+
+/* 1.7.2 — interface compacta, em duas colunas, com conteúdos expansíveis */
+.layout{grid-template-columns:minmax(0,1fr);gap:14px;max-width:940px;margin:0 auto}
+.gameplay{max-width:none}.board-card{width:min(100%,560px)}
+.menu-grid,.side{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:start}
+.mini-panel,.appearance-nav,.notes-card{background:rgba(12,27,43,.9);border:1px solid #3b566c;border-radius:12px;min-width:0;padding:0;margin:0;box-shadow:none}
+.mini-panel>summary,.appearance-nav>summary,.creator-options>summary,.history-options>summary{list-style:none;padding:14px 12px;min-height:50px;font-size:13px;font-weight:800;display:flex;align-items:center;cursor:pointer;color:#ccf2e9}
+.mini-panel>summary::-webkit-details-marker,.appearance-nav>summary::-webkit-details-marker{display:none}
+.mini-panel>summary::after,.appearance-nav>summary::after{content:'⌄';margin-left:auto;font-size:17px;transition:transform .2s;color:#88bbaf}
+.mini-panel[open]>summary::after,.appearance-nav[open]>summary::after{transform:rotate(180deg)}
+.mini-panel[open],.appearance-nav[open]{grid-column:span 2;border-color:#548b86}
+.mini-panel>*:not(summary),.appearance-nav>*:not(summary){margin:0 12px 12px}
+.mini-panel .controls{grid-template-columns:repeat(2,minmax(0,1fr))}
+.mini-panel .rating-strip{margin-top:0}
+.mini-panel .sound-toolbar{margin-top:0}
+.mini-panel .offline-strip{margin-top:0}
+.side>.mini-panel .editor,.side>.mini-panel .scorepanel{padding:10px 12px 12px}
+.side .notes-card{padding:12px;grid-column:span 2}
+.appearance-nav{padding-top:0}
+.settings-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.settings-form input[type=text]{display:block;width:100%;margin-top:5px;min-height:42px;border:1px solid #496078;border-radius:9px;background:#0d1a2b;color:#f3f8ff;padding:9px}
+.settings-form #savePreferences,.settings-form #settingsStatus,.settings-form .account-note{grid-column:1/-1}
+.settings-form .account-note{background:#162c3c;border:1px solid #36576e;border-radius:10px;padding:10px;font-size:12px;color:#cfdeed}
+.settings-form .account-note p{margin:4px 0 0;color:#b0c2d2}
+/* Tema claro só altera a interface, nunca as cores escolhidas para o tabuleiro. */
+body[data-ui='light']{--bg:#eaf0f6;--panel:#fff;--panel2:#eef4f7;--line:#bacbd6;--text:#183249;--sub:#4e6373;--accent:#14846e;color:#183249;background:linear-gradient(#f5fbff,#e2eaf2)}
+body[data-ui='light'] .panel,body[data-ui='light'] .mini-panel,body[data-ui='light'] .appearance-nav,body[data-ui='light'] .notes-card{background:#fff;border-color:#becbd7;color:#243c51}
+body[data-ui='light'] .mini-panel summary,body[data-ui='light'] .appearance-nav summary{color:#195b51}
+body[data-ui='light'] .settings-form .account-note{background:#eef4f7;color:#254556}
+body[data-ui='light'] .settings-form .account-note p{color:#4e6373}
+body[data-ui='light'] .rating-strip>div{background:#eaf5f4;color:#183249}body[data-ui='light'] .rating-strip strong{color:#18584b}
+body[data-ui='light'] .status{color:#17604f}
+body[data-ui='light'] .section-head p,body[data-ui='light'] .hint{color:#526474}
+body[data-ui='light'] .settings-form input,body[data-ui='light'] .settings-form select{background:#fff;color:#23394d}
+@media(max-width:520px){.menu-grid,.side{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.mini-panel>summary,.appearance-nav>summary{padding:12px 9px;font-size:11.5px}.mini-panel .controls{grid-template-columns:1fr 1fr}.settings-form{grid-template-columns:1fr}.settings-form>*{grid-column:1/-1}.rating-strip{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:340px){.menu-grid,.side{grid-template-columns:1fr}.mini-panel[open],.appearance-nav[open],.side .notes-card{grid-column:1}.mini-panel .controls{grid-template-columns:1fr}}

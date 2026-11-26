@@ -1,30 +1,8 @@
-XADREZ CUSTOM FULL 1.6.1 — MCE1809
+Xadrez Custom Full 1.7.2 — MCE1809
 
-Projeto web/PWA independente, com jogo e bot offline e multiplayer WebRTC direto.
+Nova interface em grade compacta de duas colunas, com seções expansíveis; tema claro/escuro, idioma Português e Inglês beta, nickname local.
+Conta online: não implementada, pois precisaria de serviço de autenticação.
+Preserva o motor, o modo criador e os saves do IndexedDB da versão 1.7.1.
 
-NOVIDADES 1.6.1
-- Correção de salvamento usando IndexedDB (baseada na atualização 1.5.1).
-- Cache offline da nova versão e verificador atualizado.
-- Cronômetro de duração da partida.
-- Ajustes de interface, toque e visual do tabuleiro.
-- Som dispara ao concluir a animação; retomada de áudio melhorada.
-- Multiplayer: verificação manual de sincronização, oferta/aceite de empate e desistência.
-- Verificação dos estados anteriores e posteriores ao receber jogadas da rede.
-- Regras customizadas, Elo recreativo, quatro bots, treino e PNGs continuam.
-
-LIMITES IMPORTANTES
-* O jogo/bot/treino pode funcionar sem internet após pré-carregar o PWA.
-* Conectar dois celulares sem internet requer rede Wi-Fi/hotspot local e troca manual de convite e resposta WebRTC (por texto ou TXT via Quick Share/Bluetooth/outro meio).
-* Hotspot não descobre automaticamente salas. A conexão WebRTC pode falhar dependendo do navegador, da rede e das políticas do celular.
-* Em redes diferentes na internet, WebRTC pode exigir um servidor TURN; ele não está incluído. Não há matchmaking central.
-* Multiplayer não foi validado em Galaxy A31 e A51 reais: teste antes de divulgar como garantido.
-* O Elo não é oficial e é salvo localmente.
-* Dados do IndexedDB e do navegador ainda podem ser perdidos ao limpar dados ou trocar de navegador; exporte temas e partidas.
-
-COMO PUBLICAR
-Os arquivos devem ficar na raiz da branch main no GitHub Pages, junto de index.html. Depois de atualizar, abra a versão online para baixar o cache e reinicie o PWA.
-
-SE O GITHUB NÃO DEIXAR SUBSTITUIR ARQUIVOS
-Há um arquivo separado ATUALIZAR_GITHUB.yml e instruções no guia COMO_ATUALIZAR_GITHUB.txt. Uma ação do GitHub poderá extrair o ZIP da atualização e fazer o commit dos arquivos novos na branch main.
-
-Arquivos principais: index.html, engine.js, game.js, peer.js, style.css, sw.js, manifest.webmanifest, icon-192.png, icon-512.png
+Para atualizar: publicar os arquivos na raiz do mesmo repositório GitHub Pages, substituindo os antigos e ADICIONANDO settings.js.
+No PWA instalado: abra online, atualize e feche/reabra. Não limpe dados do site antes de exportar saves/temas.
