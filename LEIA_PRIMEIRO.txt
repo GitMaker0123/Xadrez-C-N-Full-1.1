@@ -1,37 +1,47 @@
-XADREZ CUSTOM FULL 1.3 — MCE1809
+XADREZ CUSTOM FULL 1.4 — MCE1809
 ================================
 
-NOVO NESTA VERSÃO
-- Bot Muito difícil: quarto nível, mais análise de respostas sem garantir força de motor profissional.
-- Elo de treino e níveis de jogador: calculados localmente apenas em partidas finalizadas contra o bot; são estimativas recreativas, não classificações oficiais.
-- Multiplayer ponto a ponto experimental entre dois navegadores, pela internet ou numa mesma rede/hotspot sem dados móveis.
-- Sons, regras customizadas, tabuleiros PNG e peças PNG da Full 1.2 mantidos.
+Esta é uma atualização do seu aplicativo web instalável (PWA), e NÃO um APK.
+Funciona no navegador, pode ser instalado na tela inicial e não precisa de servidor para partidas contra bot e treino.
 
-PUBLICAÇÃO NO GITHUB PAGES
-1. Extraia este ZIP.
-2. Envie TODOS OS ARQUIVOS SOLTOS para a raiz da ramificação main de seu repositório, substituindo os antigos.
-3. IMPORTANTE: 'peer.js' é um arquivo NOVO nesta versão. Envie-o junto dos outros.
-4. Mantenha GitHub Pages configurado em main / (root).
-5. Abra a URL HTTPS e atualize/reabra seu PWA. O novo service worker v13 substitui o cache antigo.
+NOVIDADES
+- Som de movimento estilo “tec-tec” (estalos sintetizados no navegador), captura, xeque e fim de partida.
+- Movimento suavizado: a imagem da peça desliza da origem até o destino, com preferência por reduzir movimento respeitada.
+- Escolher Brancas, Pretas ou Cor aleatória. Se escolher Pretas contra o bot, o bot com Brancas começa.
+- Treino com dicas básicas de jogadas; não altera Elo nem XP.
+- Elo recreativo começando em 600 para novos jogadores. Preserva Elo da 1.3 se já houver partidas pontuadas.
+- XP por VITÓRIA contra bot, barra de XP e nível numérico. Outros modos não alteram Elo/XP.
+- Aparência: seleção de peças brancas ou pretas; importar PNG/WEBP/JPG e cores do tabuleiro.
+- Biblioteca de temas: Tema Custom #1, #2 etc.; salvar, renomear, carregar e excluir.
+- Não é possível salvar o visual padrão sem alteração nem dois temas visualmente idênticos.
+- Exportar/importar o pack atual (.json) como cópia de segurança.
+- O multiplayer WebRTC da 1.3 continua experimental, com pareamento manual por códigos.
 
-COMO JOGAR ENTRE DOIS APARELHOS — EXPERIMENTAL
-A) Cada jogador abre o mesmo site em seu celular/computador; para uso sem internet, ambos devem ter carregado/instalado o PWA antes e os arquivos precisam estar no cache.
-B) No campo Adversário, ambos selecionam '2 aparelhos (rede/internet)'.
-C) Os dois escolhem o MESMO tipo de conexão: 'Rede local/hotspot' (um ativa o roteador; o outro se conecta) ou 'Internet'.
-D) Jogador A toca 'Criar sala (brancas)', aguarda o código de convite e o ENVIA ao Jogador B.
-E) Jogador B cola o convite em 'Código recebido', toca 'Confirmar código recebido', aguarda a geração do próprio código e o ENVIA ao Jogador A.
-F) Jogador A cola a resposta em 'Código recebido' e toca 'Confirmar código recebido'.
-G) Quando aparecer 'Conectado', A joga de brancas e B de pretas. O anfitrião define as regras, compartilhadas ao conectar.
+PUBLICAR / ATUALIZAR NO GITHUB PAGES
+1. Faça backup dos seus arquivos atuais do repositório, se quiser.
+2. Extraia o ZIP. Envie os arquivos DE DENTRO da pasta Xadrez_Custom_FULL_1_4 à RAIZ do mesmo repositório no GitHub.
+3. Substitua os arquivos de mesmo nome: index.html, game.js, engine.js, peer.js,
+   style.css, manifest.webmanifest, sw.js, icon-192.png, icon-512.png.
+4. Salve as alterações (Commit changes). O GitHub Pages continua ativo automaticamente.
+5. Abra o link do jogo, atualize o navegador e, se estiver instalado como PWA, feche e reabra.
+   Se continuar vendo a versão 1.3, atualize novamente após o navegador detectar o novo Service Worker.
 
-COMO TROCAR CÓDIGOS SEM INTERNET
-Use Bluetooth, Quick Share/Compartilhamento por Proximidade ou outro meio de compartilhamento local de texto. Um hotspot sem internet cria uma rede local, mas não transfere os códigos por conta própria.
+COMO SALVAR TEMAS
+- Abra “Aparência do jogo → Meus temas salvos”.
+- Troque pelo menos uma coisa: tabuleiro, cor das casas, pack de peças ou PNG de uma peça.
+- O campo de nome pode ficar em branco: gera Tema Custom #1, #2 etc. automaticamente.
+- Clique em “+ Salvar tema novo”.
+- Selecione um tema salvo para carregar, renomear ou excluir.
+- Os visuais são armazenados NO NAVEGADOR daquele aparelho, não no GitHub.
+- Faça backup exportando um pack JSON, especialmente antes de limpar dados do navegador.
+- As imagens importadas são reduzidas para 256x256 para economizar espaço; há limite de armazenamento do navegador.
 
-LIMITAÇÕES IMPORTANTES
-- A conexão utiliza WebRTC DataChannel (criptografia de transporte integrada).
-- O site NÃO dispõe de servidor para localizar jogadores ou gerenciar salas online. A troca manual dos dois códigos é necessária.
-- Internet: usa STUN público para tentar conexão direta, e pode falhar com certos roteadores/NAT; não há servidor TURN de retransmissão. Não há promessa de conectividade universal.
-- Rede local/hotspot: depende de o roteador permitir comunicação entre clientes e da compatibilidade dos navegadores. Alguns pontos de acesso isolam aparelhos.
-- A aparência personalizada e o Elo são salvos por navegador, não sincronizados em conta.
-- Elo vale só para partidas contra o bot. Multiplayer é amistoso; não existe proteção antitrapaça, conta, ranking ou pareamento automático.
-- A integração WebRTC entre dois aparelhos físicos ainda não foi validada; use como BETA experimental.
-- Para manter o multiplayer aberto, mantenha os dois navegadores abertos e a rede local/internet ativa. Se um jogador fechar a página, a conexão cai.
+OBSERVAÇÕES
+- Os efeitos sonoros dependem das permissões e do volume do navegador.
+- A animação depende de suporte do navegador a animações Web e é desativada se o sistema preferir reduzir movimento.
+- Os cálculos de Elo/XP são locais, recreativos e NÃO constituem classificação oficial.
+- O bot Muito difícil é uma IA local leve, não um motor profissional de xadrez.
+- Multiplayer entre navegadores segue EXPERIMENTAL e não foi validado em A31/A51.
+- Não foram incluídas imagens de packs de terceiros. Você pode importar seus PNGs no editor.
+
+CRÉDITOS: MCE1809 — Projeto Xadrez Custom Full 1.4

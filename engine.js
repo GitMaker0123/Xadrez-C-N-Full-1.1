@@ -174,66 +174,46 @@ function minimax(p,rules,depth,alpha,beta){const moves=legalAll(p,p.turn,rules);
  return best;
 }
 function chooseBot(p,rules,difficulty){
- const moves=legalAll(p,'b',rules);if(!moves.length)return null;
- // Os três níveis incluem erros intencionais para manter partidas divertidas.
- // Fácil: quase aleatório; Médio: prioriza capturas, mas erra regularmente;
- // Difícil: avalia respostas, com margem para imprecisões humanas.
- if(difficulty>=4){
-   // Muito difícil: considera a pior resposta das brancas e sua própria continuação.
-   // Busca seletiva para não travar celulares modestos; não é um motor profissional.
-   const ranked=moves.map(m=>({m,v:evalPos(apply(p,m),rules)})).sort((a,b)=>b.v-a.v);
-   const front=ranked.slice(0,Math.min(9,ranked.length));
-   let best=front[0].m,score=-Infinity;
-   for(const item of front){
-     const next=apply(p,item.m), reply=legalAll(next,'w',rules);
-     if(!reply.length){const value=isCheck(next,'w',rules)?100000:0;if(value>score){score=value;best=item.m;}continue;}
-     let worst=Infinity;
-     // Brancas tentam a resposta mais incômoda; pretas calculam uma reação.
-     for(const response of orderMoves(next,reply).slice(0,12)){
-       const after=apply(next,response);
-       const continuations=legalAll(after,'b',rules);
-       let bestFollow=continuations.length?-Infinity:evalPos(after,rules);
-       for(const follow of orderMoves(after,continuations).slice(0,9)){
-         const v=evalPos(apply(after,follow),rules);
-         if(v>bestFollow)bestFollow=v;
-       }
-       const value=0.6*evalPos(after,rules)+0.4*bestFollow;
-       if(value<worst)worst=value;
-     }
-     const value=0.25*item.v+0.75*worst;
-     if(value>score){score=value;best=item.m;}
-   }
-   return best;
- }
+ const color=p.turn,enemy=opposite(color),sign=color==='b'?1:-1;
+ const moves=legalAll(p,color,rules); if(!moves.length)return null;
+ const evalFor=board=>sign*evalPos(board,rules);
  if(difficulty===1){
-   if(Math.random()<0.80)return moves[Math.floor(Math.random()*moves.length)];
-   const rated=moves.map(m=>({m,v:evalPos(apply(p,m),rules)})).sort((a,b)=>b.v-a.v);
-   return rated[Math.floor(Math.random()*Math.min(5,rated.length))].m;
+   if(Math.random()<0.82)return moves[Math.floor(Math.random()*moves.length)];
+   const ranked=moves.map(m=>({m,v:evalFor(apply(p,m))})).sort((a,b)=>b.v-a.v);
+   return ranked[Math.floor(Math.random()*Math.min(6,ranked.length))].m;
  }
- const candidateScores=[];
- for(const m of moves){
-   const next=apply(p,m),reply=legalAll(next,'w',rules);
-   let score=evalPos(next,rules);
-   if(!reply.length){score=isCheck(next,'w',rules)?100000:0;}
-   else if(difficulty===3){
+ const candidates=moves.map(m=>{
+   const next=apply(p,m), replies=legalAll(next,enemy,rules);
+   let value=evalFor(next);
+   if(!replies.length)value=isCheck(next,enemy,rules)?100000:0;
+   else if(difficulty>=3){
      let worst=Infinity;
-     for(const rm of orderMoves(next,reply).slice(0,12))worst=Math.min(worst,evalPos(apply(next,rm),rules));
-     score=score*0.35+worst*0.65;
+     const rlist=orderMoves(next,replies).slice(0,difficulty>=4?8:10);
+     for(const answer of rlist){
+       const after=apply(next,answer);
+       let v=evalFor(after);
+       if(difficulty>=4){
+         const continuations=orderMoves(after,legalAll(after,color,rules)).slice(0,6);
+         let bestFollow=continuations.length?-Infinity:v;
+         for(const response of continuations)bestFollow=Math.max(bestFollow,evalFor(apply(after,response)));
+         v=v*0.62+bestFollow*0.38;
+       }
+       worst=Math.min(worst,v);
+     }
+     value=difficulty>=4?0.18*value+0.82*worst:0.35*value+0.65*worst;
    }
-   candidateScores.push({m,score});
- }
- candidateScores.sort((a,b)=>b.score-a.score);
+   return {m,score:value};
+ }).sort((a,b)=>b.score-a.score);
  if(difficulty===2){
-   if(Math.random()<0.32)return moves[Math.floor(Math.random()*moves.length)];
-   const pool=candidateScores.slice(0,Math.min(9,candidateScores.length));
+   if(Math.random()<0.36)return moves[Math.floor(Math.random()*moves.length)];
+   const pool=candidates.slice(0,Math.min(10,candidates.length));
    return pool[Math.floor(Math.random()*pool.length)].m;
  }
- if(Math.random()<0.18){
-   const pool=candidateScores.slice(0,Math.min(7,candidateScores.length));
-   return pool[Math.floor(Math.random()*pool.length)].m;
+ if(difficulty===3){
+   if(Math.random()<0.18){const pool=candidates.slice(0,Math.min(7,candidates.length));return pool[Math.floor(Math.random()*pool.length)].m;}
+   const pool=candidates.slice(0,Math.min(3,candidates.length));return pool[Math.floor(Math.random()*pool.length)].m;
  }
- const pool=candidateScores.slice(0,Math.min(3,candidateScores.length));
- return pool[Math.floor(Math.random()*pool.length)].m;
+ return candidates[0].m;
 }
 
 root.XadrezEngine={TYPES,LABELS,PATTERNS,CLASSIC,COUNT,PIECE_CAP,CHAOS_CAP,MATERIAL,clone,preset,limits,totalCost,validate,vector,newPosition,positionKey,square,opposite,isClassic,raw,attacked,isCheck,kingAt,canCastle,pseudoMoves,legalAt,legalAll,apply,result,chooseBot,evalPos};

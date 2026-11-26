@@ -1,7 +1,7 @@
 {
-  "name": "Xadrez Custom Full 1.3 — MCE1809",
+  "name": "Xadrez Custom Full 1.4 — MCE1809",
   "short_name": "Xadrez Full",
-  "description": "Xadrez customizado e clássico, com movimentos especiais, bot em quatro níveis e multiplayer experimental local ou online. Offline.",
+  "description": "Xadrez customizado e clássico com bot em 4 níveis, treino, Elo, XP, animações e multiplayer experimental. Jogo offline.",
   "lang": "pt-BR",
   "id": "./",
   "start_url": "./index.html",
@@ -10,7 +10,17 @@
   "background_color": "#081220",
   "theme_color": "#0d1727",
   "icons": [
-    {"src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
-    {"src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"}
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
   ]
 }

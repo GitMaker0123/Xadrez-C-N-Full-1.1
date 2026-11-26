@@ -1,4 +1,4 @@
-/* Interface e persistência offline do Xadrez Custom Full — MCE1809 1.3 */
+/* Interface e persistência offline do Xadrez Custom Full — MCE1809 1.4 */
 (()=>{
 'use strict';
 const E=window.XadrezEngine;
@@ -7,14 +7,18 @@ const ICON={
   classic:{w:{rei:'♔',dama:'♕',torre:'♖',bispo:'♗',cavalo:'♘',peao:'♙'},b:{rei:'♚',dama:'♛',torre:'♜',bispo:'♝',cavalo:'♞',peao:'♟'}},
   cyber:{w:{rei:'👑',dama:'💎',torre:'🚀',bispo:'⚡',cavalo:'🦄',peao:'🛡️'},b:{rei:'💀',dama:'🔮',torre:'🛸',bispo:'🔥',cavalo:'🐉',peao:'⚔️'}}
 };
-const STORAGE='mce1809-xadrez-full-v11';
+const STORAGE='mce1809-xadrez-full-v14';
+const LEGACY_STORAGE='mce1809-xadrez-full-v11';
+const THEME_STORE='mce1809-xadrez-custom-themes-v14';
 const SOUND_STORE='mce1809-xadrez-sound-v12';
-const RATING_STORE='mce1809-xadrez-rating-v13';
-let rating={elo:1000,w:0,d:0,l:0};let ratedOnce=false;
+const RATING_STORE='mce1809-xadrez-rating-v14';
+let rating={elo:600,xp:0,w:0,d:0,l:0};let ratedOnce=false;
+let playerChoice='w',humanColor='w',trainingHint=null,skinSide='w';
+let savedThemes=[];
 let peer=null,peerRole=null,peerReady=false;
 let audioCtx=null;
 let soundConfig={enabled:true,volume:0.35};
-const APPEARANCE_DEFAULT={theme:'madeira',pieces:'classic',quickPack:'classic',boardImages:{light:'',dark:''},pieceImages:{}};
+const APPEARANCE_DEFAULT={theme:'madeira',pieces:'classic',quickPack:'classic',boardImages:{light:'',dark:''},boardColors:{light:'#ebd7b2',dark:'#7f9785'},pieceImages:{}};
 let appearance=cloneSimple(APPEARANCE_DEFAULT);
 let mode='balanced',rules=E.preset(mode),draft=E.clone(rules),selectedPiece='torre';
 let pos=E.newPosition(),selections=[],selected=null,undoStack=[],timer=null,flipped=false,promotionPending=null,finalStatus=null;
@@ -26,19 +30,22 @@ function playSound(kind){
     const AudioCtx=window.AudioContext||window.webkitAudioContext;
     if(!AudioCtx)return;
     if(!audioCtx)audioCtx=new AudioCtx();
-    if(audioCtx.state==='suspended') audioCtx.resume().catch(()=>{});
-    const tones={move:[[350,0,0.075]],capture:[[520,0,0.075],[320,0.085,0.11]],check:[[700,0,0.11],[850,0.12,0.14]],end:[[540,0,0.11],[690,0.12,0.11],[850,0.24,0.20]],undo:[[460,0,0.065],[330,0.08,0.095]]};
-    const start=audioCtx.currentTime+0.015;
-    for(const [freq,delay,duration] of (tones[kind]||tones.move)){
-      const osc=audioCtx.createOscillator(),gain=audioCtx.createGain();
-      osc.type=kind==='capture'?'triangle':'sine';osc.frequency.setValueAtTime(freq,start+delay);
-      gain.gain.setValueAtTime(0.0001,start+delay);
-      gain.gain.exponentialRampToValueAtTime(Math.max(0.001,soundConfig.volume*0.15),start+delay+0.018);
-      gain.gain.exponentialRampToValueAtTime(0.0001,start+delay+duration);
-      osc.connect(gain);gain.connect(audioCtx.destination);
-      osc.start(start+delay);osc.stop(start+delay+duration+0.015);
+    if(audioCtx.state==='suspended')audioCtx.resume().catch(()=>{});
+    const pairs={move:[[0,0.018],[0.064,0.018]],capture:[[0,0.023],[0.075,0.024],[0.14,0.018]],check:[[0,0.020],[0.063,0.021],[0.18,0.045]],end:[[0,0.024],[0.09,0.024],[0.19,0.027]],undo:[[0,0.017],[0.076,0.017]]};
+    const now=audioCtx.currentTime+0.015;
+    for(const [delay,dur] of (pairs[kind]||pairs.move)){
+      const t=now+delay;
+      // Estalo curto tipo madeira: ataque quase instantâneo e rápida queda de tom.
+      const osc=audioCtx.createOscillator(),gain=audioCtx.createGain(),filter=audioCtx.createBiquadFilter();
+      osc.type='triangle';osc.frequency.setValueAtTime(kind==='check'?1100:880,t);
+      osc.frequency.exponentialRampToValueAtTime(kind==='capture'?250:340,t+dur);
+      filter.type='lowpass';filter.frequency.setValueAtTime(1900,t);
+      gain.gain.setValueAtTime(Math.max(0.001,soundConfig.volume*0.22),t);
+      gain.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+      osc.connect(filter);filter.connect(gain);gain.connect(audioCtx.destination);
+      osc.start(t);osc.stop(t+dur+0.01);
     }
-  }catch(_){ /* Áudio opcional: o jogo continua mesmo sem suporte. */ }
+  }catch(_){ /* Som opcional, sem afetar a partida. */ }
 }
 function saveSound(){try{localStorage.setItem(SOUND_STORE,JSON.stringify(soundConfig));}catch(_){}}
 function setupSound(){
@@ -53,40 +60,56 @@ function say(t){$('status').textContent=t;}
 function notify(t){$('feedback').textContent=t;}
 function pieceKey(color,type){return color+'_'+type;}
 function normalizeAppearance(a){
-  const base=cloneSimple(APPEARANCE_DEFAULT);
-  if(!a||typeof a!=='object') return base;
-  base.theme=['madeira','neon','gelo','custom'].includes(a.theme)?a.theme:'madeira';
-  base.pieces=['classic','cyber','custom'].includes(a.pieces)?a.pieces:'classic';
-  base.quickPack=['classic','cyber'].includes(a.quickPack)?a.quickPack:'classic';
-  if(a.boardImages&&typeof a.boardImages==='object'){
-    base.boardImages.light=typeof a.boardImages.light==='string'?a.boardImages.light:'';
-    base.boardImages.dark=typeof a.boardImages.dark==='string'?a.boardImages.dark:'';
-  }
-  if(a.pieceImages&&typeof a.pieceImages==='object') base.pieceImages=a.pieceImages;
-  return base;
+ const base=cloneSimple(APPEARANCE_DEFAULT);if(!a||typeof a!=='object')return base;
+ base.theme=['madeira','neon','gelo','custom'].includes(a.theme)?a.theme:'madeira';
+ base.pieces=['classic','cyber','custom'].includes(a.pieces)?a.pieces:'classic';
+ base.quickPack=['classic','cyber'].includes(a.quickPack)?a.quickPack:'classic';
+ if(a.boardImages&&typeof a.boardImages==='object')for(const key of ['light','dark']){
+   if(typeof a.boardImages[key]==='string'&&/^data:image\/(?:png|webp|jpeg);base64,/i.test(a.boardImages[key]))base.boardImages[key]=a.boardImages[key];
+ }
+ if(a.boardColors&&typeof a.boardColors==='object')for(const key of ['light','dark']){
+   if(typeof a.boardColors[key]==='string'&&/^#[0-9a-f]{6}$/i.test(a.boardColors[key]))base.boardColors[key]=a.boardColors[key].toLowerCase();
+ }
+ if(a.pieceImages&&typeof a.pieceImages==='object')for(const color of ['w','b'])for(const type of E.TYPES){
+   const k=color+'_'+type;const value=a.pieceImages[k];
+   if(typeof value==='string'&&/^data:image\/(?:png|webp|jpeg);base64,/i.test(value))base.pieceImages[k]=value;
+ }
+ return base;
 }
 function safeSave(){
-  try{
-    const data={version:2,mode,rules,position:pos,undo:undoStack.slice(-50),opponent:$('opponent').value,difficulty:$('difficulty').value,theme:$('theme').value,pieces:$('pieces').value,flipped,appearance};
-    localStorage.setItem(STORAGE,JSON.stringify(data));
-  }catch(_){ }
+ try{
+  const data={version:3,mode,rules,position:pos,undo:undoStack.slice(-30),opponent:$('opponent').value,difficulty:$('difficulty').value,flipped,appearance,playerChoice,humanColor};
+  localStorage.setItem(STORAGE,JSON.stringify(data));return true;
+ }catch(_){$('appearanceSaveStatus').textContent='O armazenamento deste navegador está cheio. Exporte seus packs ou use imagens menores.';return false;}
 }
 function isValidRestore(d){
-  const okVersion=d&&(d.version===1||d.version===2);
-  return okVersion&&['balanced','classic','chaos'].includes(d.mode)&&!E.validate(d.rules,d.mode)&&d.position&&Array.isArray(d.position.board)&&d.position.board.length===8&&d.position.board.every(row=>Array.isArray(row)&&row.length===8)&&['w','b'].includes(d.position.turn);
+ const okVersion=d&&[1,2,3].includes(d.version);
+ return okVersion&&['balanced','classic','chaos'].includes(d.mode)&&!E.validate(d.rules,d.mode)&&d.position&&Array.isArray(d.position.board)&&d.position.board.length===8&&d.position.board.every(row=>Array.isArray(row)&&row.length===8&&row.every(p=>!p||E.TYPES.includes(p.type)&&['w','b'].includes(p.color)))&&['w','b'].includes(d.position.turn)&&d.position.rights&&typeof d.position.rights==='object'&&d.position.repetitions&&typeof d.position.repetitions==='object'&&Array.isArray(d.position.history)&&d.position.history.length<2000;
 }
 function stopTimer(){if(timer!==null){clearTimeout(timer);timer=null;}}
-function toggleBotControl(){$('difficultyWrap').style.display=$('opponent').value==='bot'?'':'none';}
+function isBotMode(){return $('opponent').value==='bot'||$('opponent').value==='training';}
+function isTraining(){return $('opponent').value==='training';}
+function updateColorUI(){
+ $('colorResolved').textContent=$('opponent').value==='remote'?'Conexão remota: anfitrião joga de brancas e convidado de pretas.':('Você joga com as '+(humanColor==='w'?'brancas':'pretas')+'. As brancas sempre começam'+(humanColor==='b'?' (o bot joga primeiro).':'.'));
+ $('playerColorWrap').style.display=$('opponent').value==='remote'?'none':'';
+ $('trainingPanel').hidden=!isTraining();
+}
+function toggleBotControl(){
+ $('difficultyWrap').style.display=isBotMode()?'':'none';
+ $('trainingPanel').hidden=!isTraining();updateColorUI();
+}
 function applyAppearanceToUI(){
-  document.body.dataset.theme=appearance.theme==='custom'?'madeira':appearance.theme;
-  $('theme').value=appearance.theme;
-  $('pieces').value=appearance.pieces;
-  $('quickPack').value=appearance.quickPack;
-  const board=$('board');
-  board.classList.toggle('custom-skin',appearance.theme==='custom'&&!!(appearance.boardImages.light||appearance.boardImages.dark));
-  board.style.setProperty('--board-light-image',appearance.boardImages.light?`url(${appearance.boardImages.light})`:'none');
-  board.style.setProperty('--board-dark-image',appearance.boardImages.dark?`url(${appearance.boardImages.dark})`:'none');
-  updateAppearancePreviews();
+ document.body.dataset.theme=appearance.theme==='custom'?'madeira':appearance.theme;
+ $('theme').value=appearance.theme;$('pieces').value=appearance.pieces;$('quickPack').value=appearance.quickPack;
+ $('boardLightColor').value=appearance.boardColors.light;$('boardDarkColor').value=appearance.boardColors.dark;
+ const board=$('board');
+ const custom=appearance.theme==='custom';
+ board.classList.toggle('custom-skin',custom&&!!(appearance.boardImages.light||appearance.boardImages.dark));
+ for(const k of ['light','dark']){
+  board.style.setProperty('--'+k,custom?appearance.boardColors[k]:'');
+  board.style.setProperty('--board-'+k+'-image',custom&&appearance.boardImages[k]?`url(${appearance.boardImages[k]})`:'none');
+ }
+ updateAppearancePreviews();
 }
 function updatePreview(id,src,text){
   const holder=$(id); if(!holder) return;
@@ -103,64 +126,171 @@ function updateAppearancePreviews(){
   }
 }
 function rebuildAppearanceInputs(){
-  const root=$('piecePackInputs'); root.textContent='';
-  const order=[['w','rei'],['w','dama'],['w','torre'],['w','bispo'],['w','cavalo'],['w','peao'],['b','rei'],['b','dama'],['b','torre'],['b','bispo'],['b','cavalo'],['b','peao']];
-  for(const [color,type] of order){
-    const key=pieceKey(color,type);
-    const label=document.createElement('label');
-    label.textContent=(color==='w'?'Branca':'Preta')+' · '+E.LABELS[type];
-    const input=document.createElement('input');
-    input.type='file'; input.accept='image/png,image/*'; input.dataset.key=key;
-    input.addEventListener('change',onPieceFile);
-    const preview=document.createElement('div');
-    preview.className='preview-chip'; preview.id='preview_'+key;
-    label.appendChild(input); label.appendChild(preview); root.appendChild(label);
-  }
-  updateAppearancePreviews();
+ const root=$('piecePackInputs');root.textContent='';
+ for(const type of E.TYPES){
+   const key=pieceKey(skinSide,type);
+   const label=document.createElement('label');label.textContent=E.LABELS[type]+' '+(skinSide==='w'?'branca':'preta');
+   const input=document.createElement('input');input.type='file';input.accept='image/png,image/webp,image/jpeg';input.dataset.key=key;
+   input.addEventListener('change',onPieceFile);
+   const preview=document.createElement('div');preview.className='preview-chip';preview.id='preview_'+key;
+   label.appendChild(input);label.appendChild(preview);root.appendChild(label);
+ }
+ $('whiteSkinTab').classList.toggle('primary',skinSide==='w');$('blackSkinTab').classList.toggle('primary',skinSide==='b');
+ updateAppearancePreviews();
 }
-function fileToDataUrl(file){return new Promise((resolve,reject)=>{const rd=new FileReader(); rd.onload=()=>resolve(String(rd.result)); rd.onerror=()=>reject(Error('Falha ao ler imagem.')); rd.readAsDataURL(file);});}
+function fileToDataUrl(file){
+ if(!file||!['image/png','image/webp','image/jpeg'].includes(file.type))return Promise.reject(Error('Escolha um PNG, WEBP ou JPG válido.'));
+ if(file.size>5_000_000)return Promise.reject(Error('Imagem muito grande: o máximo é 5 MB.'));
+ return new Promise((resolve,reject)=>{
+  const rd=new FileReader();rd.onerror=()=>reject(Error('Falha ao ler imagem.'));
+  rd.onload=()=>{const img=new Image();img.onerror=()=>reject(Error('Arquivo não é uma imagem válida.'));
+   img.onload=()=>{
+    const side=256,cv=document.createElement('canvas');cv.width=side;cv.height=side;
+    const ctx=cv.getContext('2d');if(!ctx)return reject(Error('Canvas indisponível.'));
+    const ratio=Math.min((side-12)/img.naturalWidth,(side-12)/img.naturalHeight);
+    ctx.clearRect(0,0,side,side);ctx.drawImage(img,(side-img.naturalWidth*ratio)/2,(side-img.naturalHeight*ratio)/2,img.naturalWidth*ratio,img.naturalHeight*ratio);
+    const out=cv.toDataURL('image/webp',0.84);
+    resolve(out.startsWith('data:image/webp')?out:cv.toDataURL('image/png'));
+   };img.src=String(rd.result);
+  };rd.readAsDataURL(file);
+ });
+}
 async function onBoardFile(ev){
-  const file=ev.target.files&&ev.target.files[0]; if(!file) return;
-  appearance.boardImages[ev.target.dataset.kind]=await fileToDataUrl(file);
-  appearance.theme='custom'; $('theme').value='custom';
-  applyAppearanceToUI(); notify('PNG do tabuleiro carregado. Clique em Salvar aparência.');
+ const file=ev.target.files&&ev.target.files[0];if(!file)return;
+ try{appearance.boardImages[ev.target.dataset.kind]=await fileToDataUrl(file);appearance.theme='custom';applyAppearanceToUI();render();safeSave();notify('Imagem da casa carregada. Salve em Meus temas para criar um visual próprio.');}
+ catch(e){alert(e.message);}ev.target.value='';
 }
 async function onPieceFile(ev){
-  const file=ev.target.files&&ev.target.files[0]; if(!file) return;
-  appearance.pieceImages[ev.target.dataset.key]=await fileToDataUrl(file);
-  appearance.pieces='custom'; $('pieces').value='custom';
-  applyAppearanceToUI(); render(); notify('PNG da peça carregado. Clique em Salvar aparência.');
+ const file=ev.target.files&&ev.target.files[0];if(!file)return;
+ try{appearance.pieceImages[ev.target.dataset.key]=await fileToDataUrl(file);appearance.pieces='custom';render();safeSave();notify('Peça carregada. Salve em Meus temas para guardar esta combinação.');}
+ catch(e){alert(e.message);}ev.target.value='';
 }
 function saveAppearance(){
-  appearance.theme=$('theme').value;
-  appearance.pieces=$('pieces').value;
-  appearance.quickPack=$('quickPack').value;
-  safeSave(); render(); notify('Aparência salva neste navegador.');
+ appearance.theme=$('theme').value;appearance.pieces=$('pieces').value;appearance.quickPack=$('quickPack').value;
+ if(safeSave()){$('appearanceSaveStatus').textContent='Visual atual guardado neste navegador. Para registrar como Tema Custom #1, use Salvar tema novo.';notify('Visual atualizado com sucesso.');}
+ render();
 }
-function resetAppearance(){appearance=cloneSimple(APPEARANCE_DEFAULT); applyAppearanceToUI(); safeSave(); render(); notify('Aparência restaurada para o padrão.');}
-function applyQuickPack(){appearance.quickPack=$('quickPack').value; appearance.pieces=appearance.quickPack; $('pieces').value=appearance.pieces; render(); notify('Pack da biblioteca aplicado.');}
+function resetAppearance(){appearance=cloneSimple(APPEARANCE_DEFAULT);applyAppearanceToUI();safeSave();render();notify('Aparência restaurada. Seus temas salvos continuam na biblioteca.');}
+function applyQuickPack(){appearance.quickPack=$('quickPack').value;appearance.pieces=appearance.quickPack;render();safeSave();notify('Pack da biblioteca aplicado.');}
+function themeSnapshot(){
+ const a=normalizeAppearance(appearance);
+ // Guardar somente valores normalizados, evitando diferenças por campos não usados.
+ return a;
+}
+function effectiveAppearanceKey(a){
+ const x=normalizeAppearance(a);
+ const boardColors=x.theme==='custom'?x.boardColors:{light:'',dark:''};
+ const boardImages=x.theme==='custom'?x.boardImages:{light:'',dark:''};
+ const pieces=x.pieces==='custom'?x.pieceImages:{};
+ return JSON.stringify({theme:x.theme,boardColors,boardImages,pieces:x.pieces,quickPack:x.pieces==='custom'?x.quickPack:'',pieceImages:pieces});
+}
+function saveThemeLibrary(){
+ try{localStorage.setItem(THEME_STORE,JSON.stringify(savedThemes));return true;}
+ catch(_){$('themeLibraryStatus').textContent='Espaço insuficiente: exporte seu pack e libere armazenamento para salvar mais temas.';return false;}
+}
+function loadThemeLibrary(){
+ try{const stored=JSON.parse(localStorage.getItem(THEME_STORE)||'[]');savedThemes=Array.isArray(stored)?stored.filter(t=>t&&typeof t.id==='string'&&typeof t.name==='string'&&t.appearance).slice(0,80):[];}catch(_){savedThemes=[];}
+ refreshThemeList();
+}
+function refreshThemeList(selectedId=''){
+ const sel=$('savedThemeSelect');sel.textContent='';
+ const empty=document.createElement('option');empty.value='';empty.textContent=savedThemes.length?'Selecione um tema salvo':'Nenhum tema salvo';sel.appendChild(empty);
+ for(const item of savedThemes){const opt=document.createElement('option');opt.value=item.id;opt.textContent=item.name;sel.appendChild(opt);}
+ sel.value=selectedId&&savedThemes.some(x=>x.id===selectedId)?selectedId:'';
+ if(sel.value){$('customThemeName').value=savedThemes.find(x=>x.id===sel.value).name;}
+ $('themeLibraryStatus').textContent=savedThemes.length?`${savedThemes.length} tema(s) salvo(s) neste navegador.`:'Nenhum tema salvo ainda.';
+}
+function nextThemeName(){let n=1;while(savedThemes.some(x=>x.name===`Tema Custom #${n}`))n++;return `Tema Custom #${n}`;}
+function saveNewTheme(){
+ const a=themeSnapshot(),k=effectiveAppearanceKey(a);
+ if(k===effectiveAppearanceKey(APPEARANCE_DEFAULT)){$('themeLibraryStatus').textContent='Altere ao menos uma peça, cor ou visual do tabuleiro antes de salvar.';return;}
+ if(savedThemes.some(item=>effectiveAppearanceKey(item.appearance)===k)){$('themeLibraryStatus').textContent='Esse visual já está salvo. Mude pelo menos uma peça, cor ou outro detalhe.';return;}
+ const id='t'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+ const input=$('customThemeName').value.trim().slice(0,50);
+ const selected=savedThemes.find(x=>x.id===$('savedThemeSelect').value);
+ const name=(!input||input===selected?.name)?nextThemeName():input;
+ if(savedThemes.some(item=>item.name.toLowerCase()===name.toLowerCase())){$('themeLibraryStatus').textContent='Já existe um tema com esse nome. Escolha outro.';return;}
+ savedThemes.push({id,name,appearance:a});
+ if(!saveThemeLibrary()){savedThemes.pop();return;}
+ refreshThemeList(id);$('themeLibraryStatus').textContent=`${name} foi salvo! Você pode trocar de tema a qualquer momento.`;
+}
+function loadSelectedTheme(){
+ const item=savedThemes.find(x=>x.id===$('savedThemeSelect').value);if(!item){$('themeLibraryStatus').textContent='Escolha um tema da lista.';return;}
+ appearance=normalizeAppearance(item.appearance);applyAppearanceToUI();render();safeSave();$('themeLibraryStatus').textContent=`Tema “${item.name}” aplicado!`;
+}
+function renameSelectedTheme(){
+ const item=savedThemes.find(x=>x.id===$('savedThemeSelect').value);if(!item){$('themeLibraryStatus').textContent='Selecione o tema que deseja renomear.';return;}
+ const name=$('customThemeName').value.trim().slice(0,50);
+ if(!name){$('themeLibraryStatus').textContent='Digite um nome para o tema.';return;}
+ if(savedThemes.some(x=>x.id!==item.id&&x.name.toLowerCase()===name.toLowerCase())){$('themeLibraryStatus').textContent='Esse nome já está sendo usado.';return;}
+ const prev=item.name;item.name=name;
+ if(!saveThemeLibrary()){item.name=prev;return;}
+ refreshThemeList(item.id);$('themeLibraryStatus').textContent=`Tema renomeado para “${name}”.`;
+}
+function deleteSelectedTheme(){
+ const id=$('savedThemeSelect').value;const item=savedThemes.find(x=>x.id===id);
+ if(!item){$('themeLibraryStatus').textContent='Selecione um tema para excluir.';return;}
+ if(!window.confirm(`Excluir o tema “${item.name}”?`))return;
+ savedThemes=savedThemes.filter(x=>x.id!==id);
+ if(!saveThemeLibrary()){$('themeLibraryStatus').textContent='Não foi possível salvar a exclusão.';return;}
+ refreshThemeList();$('customThemeName').value='';$('themeLibraryStatus').textContent='Tema excluído da biblioteca.';
+}
+function exportAppearance(){
+ const data={format:'MCE1809-XADREZ-APPEARANCE',version:1,appearance:themeSnapshot()};
+ const blob=new Blob([JSON.stringify(data)],{type:'application/json'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='xadrez-mce1809-tema.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+async function importAppearanceFile(file){
+ if(file.size>6_000_000)throw Error('Arquivo de tema muito grande.');
+ const data=JSON.parse(await file.text());if(data.format!=='MCE1809-XADREZ-APPEARANCE'||data.version!==1||!data.appearance)throw Error('Arquivo de tema não reconhecido.');
+ appearance=normalizeAppearance(data.appearance);applyAppearanceToUI();render();safeSave();$('appearanceSaveStatus').textContent='Pack importado. Clique em Salvar tema novo se quiser guardar na biblioteca.';
+}
 function restore(d){
-  if(!isValidRestore(d)) throw Error('Arquivo de partida não reconhecido.');
-  stopTimer();
-  mode=d.mode; rules=E.clone(d.rules); draft=E.clone(rules); pos=d.position;
-  undoStack=Array.isArray(d.undo)?d.undo.slice(-50):[]; flipped=!!d.flipped; selected=null; selections=[];
-  appearance=normalizeAppearance(d.appearance);
-  $('mode').value=mode;
-  $('opponent').value=d.opponent==='local'?'local':'bot';
-  $('difficulty').value=['1','2','3','4'].includes(String(d.difficulty))?String(d.difficulty):'2';
-  applyAppearanceToUI();
-  ratedOnce=E.result(pos,rules).over;redrawEditor(); toggleBotControl(); render();
-  if(!E.result(pos,rules).over&&$('opponent').value==='bot'&&pos.turn==='b') scheduleBot();
+ if(!isValidRestore(d))throw Error('Arquivo de partida não reconhecido.');
+ stopTimer();mode=d.mode;rules=E.clone(d.rules);draft=E.clone(rules);pos=d.position;
+ undoStack=Array.isArray(d.undo)?d.undo.slice(-30):[];flipped=!!d.flipped;selected=null;selections=[];
+ appearance=normalizeAppearance(d.appearance);
+ $('mode').value=mode;$('opponent').value=['bot','training','local'].includes(d.opponent)?d.opponent:'bot';
+ $('difficulty').value=['1','2','3','4'].includes(String(d.difficulty))?String(d.difficulty):'2';
+ playerChoice=['w','b','random'].includes(d.playerChoice)?d.playerChoice:'w';
+ humanColor=['w','b'].includes(d.humanColor)?d.humanColor:'w';
+ $('playerColor').value=playerChoice;
+ applyAppearanceToUI();ratedOnce=E.result(pos,rules).over;redrawEditor();toggleBotControl();setRemoteUI();render();
+ if(!E.result(pos,rules).over&&isBotMode()&&pos.turn!==humanColor)scheduleBot();
 }
-function startGame(){stopTimer(); pos=E.newPosition(); undoStack=[]; selected=null; selections=[]; promotionPending=null; ratedOnce=false; closePromotion(); render(); safeSave();}
+function startGame(){
+ stopTimer();pos=E.newPosition();undoStack=[];selected=null;selections=[];promotionPending=null;ratedOnce=false;trainingHint=null;closePromotion();
+ if($('opponent').value!=='remote'){
+  playerChoice=$('playerColor').value;
+  humanColor=playerChoice==='random'?(Math.random()<0.5?'w':'b'):playerChoice;
+  flipped=humanColor==='b';
+ }else flipped=peerRole==='guest';
+ updateColorUI();render();safeSave();
+ if(isBotMode()&&pos.turn!==humanColor)scheduleBot();
+}
 function statusText(result){
-  if(result.over){ if(result.winner) return 'XEQUE-MATE! '+(result.winner==='w'?'Brancas':'Pretas')+' venceram!'; return 'EMPATE — '+result.reason+'.'; }
-  const side=pos.turn==='w'?'brancas':'pretas'; const prefix=result.check?'XEQUE! ':'Sua vez: ';
-  if($('opponent').value==='bot'&&pos.turn==='b') return 'Bot pensando…';
-  if($('opponent').value==='remote')return peerReady?(pos.turn===(peerRole==='host'?'w':'b')?'Sua vez: ':'Vez do adversário: ')+side:'Multiplayer: aguardando conexão.';
-  return prefix+side+(result.check?' devem proteger o rei.':'');
+ if(result.over){if(result.winner)return 'XEQUE-MATE! '+(result.winner==='w'?'Brancas':'Pretas')+' venceram!';return 'EMPATE — '+result.reason+'.';}
+ const side=pos.turn==='w'?'brancas':'pretas';const prefix=result.check?'XEQUE! ':'Sua vez: ';
+ if(isBotMode()&&pos.turn!==humanColor)return 'Bot pensando…';
+ if($('opponent').value==='remote')return peerReady?(pos.turn===(peerRole==='host'?'w':'b')?'Sua vez: ':'Vez do adversário: ')+side:'Multiplayer: aguardando conexão.';
+ return prefix+side+(result.check?' devem proteger o rei.':'');
 }
 function currentIconSet(){return ICON[appearance.pieces==='custom'?(appearance.quickPack||'classic'):$('pieces').value]||ICON.classic;}
+function animateMove(m,oldPiece,fromRect){
+ if(!oldPiece||!fromRect||window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)return;
+ const end=document.querySelector(`.square[data-r="${m.tr}"][data-c="${m.tc}"]`);
+ if(!end)return;const toRect=end.getBoundingClientRect();
+ if(!fromRect.width||!toRect.width)return;
+ const ghost=document.createElement('div');ghost.className='moving-piece-ghost';
+ ghost.style.left=fromRect.left+'px';ghost.style.top=fromRect.top+'px';ghost.style.width=fromRect.width+'px';ghost.style.height=fromRect.height+'px';
+ const src=appearance.pieces==='custom'?appearance.pieceImages[pieceKey(oldPiece.color,oldPiece.type)]:'';
+ if(src){const img=document.createElement('img');img.className='custom-piece';img.src=src;ghost.appendChild(img);}
+ else {ghost.textContent=currentIconSet()[oldPiece.color][oldPiece.type];ghost.style.fontSize=getComputedStyle(end).fontSize;ghost.style.color=oldPiece.color==='w'?'#faf9f0':'#17232d';ghost.style.textShadow=oldPiece.color==='w'?'0 1px 3px #030d12':'0 1px 2px #ffffffb0';}
+ document.body.appendChild(ghost);end.classList.add('arrival-target');
+ const dx=toRect.left-fromRect.left,dy=toRect.top-fromRect.top;
+ const cleanup=()=>{ghost.remove();end.classList.remove('arrival-target');};
+ if(ghost.animate){const a=ghost.animate([{transform:'translate(0px,0px)'},{transform:`translate(${dx}px, ${dy}px)`}],{duration:260,easing:'cubic-bezier(.25,.8,.25,1)'});a.onfinish=cleanup;a.oncancel=cleanup;}
+ else {ghost.style.transition='transform 260ms ease-out';requestAnimationFrame(()=>ghost.style.transform=`translate(${dx}px, ${dy}px)`);setTimeout(cleanup,310);}
+}
 function render(){
   finalStatus=E.result(pos,rules); say(statusText(finalStatus));
   $('turnPill').textContent=finalStatus.over?'Partida encerrada':pos.turn==='w'?'Vez das brancas':'Vez das pretas';
@@ -174,13 +304,15 @@ function render(){
   const frag=document.createDocumentFragment();
   for(const r of rows) for(const c of cols){
     const square=document.createElement('button'); square.type='button'; square.className='square '+((r+c)%2?'dark':'light');
-    const piece=pos.board[r][c];
+    const piece=pos.board[r][c];square.dataset.r=r;square.dataset.c=c;
     if(piece){
       const customSrc=appearance.pieces==='custom'?appearance.pieceImages[pieceKey(piece.color,piece.type)]:'';
       if(customSrc){const img=document.createElement('img'); img.src=customSrc; img.alt=E.LABELS[piece.type]; img.className='custom-piece'; square.appendChild(img);} else square.textContent=names[piece.color][piece.type];
       square.classList.add(piece.color==='w'?'white':'black');
     }
     if(selected&&selected.r===r&&selected.c===c) square.classList.add('selected');
+    if(trainingHint&&trainingHint.fr===r&&trainingHint.fc===c)square.classList.add('hint-source');
+    if(trainingHint&&trainingHint.tr===r&&trainingHint.tc===c)square.classList.add('hint-dest');
     const target=selections.find(m=>m.tr===r&&m.tc===c); if(target) square.classList.add((piece||target.enPassant)?'capture':'target');
     if(kingCheck&&kingCheck.r===r&&kingCheck.c===c) square.classList.add('in-check');
     if(pos.last&&((pos.last.fr===r&&pos.last.fc===c)||(pos.last.tr===r&&pos.last.tc===c))) square.classList.add('last');
@@ -194,14 +326,12 @@ function render(){
   for(const str of pos.history.slice(-28)){const li=document.createElement('li'); li.textContent=str; hist.appendChild(li);} hist.scrollTop=hist.scrollHeight;
 }
 function squareClick(r,c){
-  if(finalStatus?.over||promotionPending) return;
-  if($('opponent').value==='bot'&&pos.turn!=='w') return;
-  if($('opponent').value==='remote'&&(!peerReady||pos.turn!==(peerRole==='host'?'w':'b')))return;
-  const possible=selections.filter(m=>m.tr===r&&m.tc===c);
-  if(possible.length){ if(possible.some(m=>m.promote)){choosePromotion(possible); return;} doMove(possible[0]); return; }
-  const piece=pos.board[r][c];
-  if(piece&&piece.color===pos.turn){ selected={r,c}; selections=E.legalAt(pos,r,c,rules);} else { selected=null; selections=[]; }
-  render();
+ if(finalStatus?.over||promotionPending)return;
+ if(isBotMode()&&pos.turn!==humanColor)return;
+ if($('opponent').value==='remote'&&(!peerReady||pos.turn!==(peerRole==='host'?'w':'b')))return;
+ const possible=selections.filter(m=>m.tr===r&&m.tc===c);
+ if(possible.length){if(possible.some(m=>m.promote)){choosePromotion(possible);return;}doMove(possible[0]);return;}
+ const piece=pos.board[r][c];if(piece&&piece.color===pos.turn){selected={r,c};selections=E.legalAt(pos,r,c,rules);}else{selected=null;selections=[];}render();
 }
 function choosePromotion(moves){
   promotionPending=moves; const panel=$('promotionOptions'); panel.textContent=''; const color=pos.turn;
@@ -219,25 +349,33 @@ function choosePromotion(moves){
 }
 function closePromotion(){$('promotionModal').hidden=true; $('promotionModal').setAttribute('aria-hidden','true');}
 function doMove(m,remote=false){
-  if($('opponent').value==='remote'){
-    if(!peerReady)return;
-    if(!remote&&pos.turn!==(peerRole==='host'?'w':'b'))return;
-    if(remote&&pos.turn===(peerRole==='host'?'w':'b'))return;
-  }
-  const captured=!!pos.board[m.tr][m.tc]||!!m.enPassant;
-  undoStack.push(E.clone(pos)); if(undoStack.length>50)undoStack.shift();
-  pos=E.apply(pos,m,true); selected=null;selections=[];render();
-  playSound(finalStatus.over?'end':finalStatus.check?'check':captured?'capture':'move');
-  if($('opponent').value==='remote'&&!remote){if(!peer?.send({t:'move',m:{fr:m.fr,fc:m.fc,tr:m.tr,tc:m.tc,promote:m.promote||''},n:pos.history.length}))notify('Falha ao enviar movimento.');}
-  recordRating();safeSave();
-  if(!finalStatus.over&&$('opponent').value==='bot'&&pos.turn==='b')scheduleBot();
+ if($('opponent').value==='remote'){
+  if(!peerReady)return;
+  if(!remote&&pos.turn!==(peerRole==='host'?'w':'b'))return;
+  if(remote&&pos.turn===(peerRole==='host'?'w':'b'))return;
+ }
+ const source=document.querySelector(`.square[data-r="${m.fr}"][data-c="${m.fc}"]`);
+ const oldRect=source?.getBoundingClientRect();const oldPiece=pos.board[m.fr][m.fc]?{...pos.board[m.fr][m.fc]}:null;
+ const captured=!!pos.board[m.tr][m.tc]||!!m.enPassant;
+ undoStack.push(E.clone(pos));if(undoStack.length>50)undoStack.shift();
+ pos=E.apply(pos,m,true);selected=null;selections=[];trainingHint=null;render();animateMove(m,oldPiece,oldRect);
+ playSound(finalStatus.over?'end':finalStatus.check?'check':captured?'capture':'move');
+ if($('opponent').value==='remote'&&!remote){if(!peer?.send({t:'move',m:{fr:m.fr,fc:m.fc,tr:m.tr,tc:m.tc,promote:m.promote||''},n:pos.history.length}))notify('Falha ao enviar movimento.');}
+ recordRating();safeSave();
+ if(!finalStatus.over&&isBotMode()&&pos.turn!==humanColor)scheduleBot();
 }
-function scheduleBot(){stopTimer(); say('Bot pensando…'); timer=setTimeout(()=>{timer=null; if(pos.turn!=='b'||E.result(pos,rules).over||$('opponent').value!=='bot') return; const m=E.chooseBot(pos,rules,Number($('difficulty').value)); if(m) doMove(m); else render();},180);}
+function scheduleBot(){
+ stopTimer();say('Bot pensando…');timer=setTimeout(()=>{
+  timer=null;if(!isBotMode()||pos.turn===humanColor||E.result(pos,rules).over)return;
+  const m=E.chooseBot(pos,rules,Number($('difficulty').value));if(m)doMove(m);else render();
+ },430);
+}
 function undo(){
-  if($('opponent').value==='remote')return;
-  stopTimer(); promotionPending=null; closePromotion(); if(!undoStack.length) return;
-  let last; do{ last=undoStack.pop(); if($('opponent').value==='local'||last.turn==='w') break; }while(undoStack.length);
-  pos=last; selected=null; selections=[]; render(); playSound('undo'); safeSave(); if($('opponent').value==='bot'&&pos.turn==='b'&&!finalStatus.over) scheduleBot();
+ if($('opponent').value==='remote')return;
+ stopTimer();promotionPending=null;closePromotion();if(!undoStack.length)return;
+ let last;do{last=undoStack.pop();if(!isBotMode()||last.turn===humanColor)break;}while(undoStack.length);
+ pos=last;selected=null;selections=[];trainingHint=null;render();playSound('undo');safeSave();
+ if(isBotMode()&&pos.turn!==humanColor&&!finalStatus.over)scheduleBot();
 }
 function setupTabs(){const root=$('tabs'); root.textContent=''; for(const type of E.TYPES){const btn=document.createElement('button'); btn.type='button'; btn.className='piece-tab'+(type===selectedPiece?' active':''); btn.textContent=E.LABELS[type]; btn.addEventListener('click',()=>{selectedPiece=type; redrawEditor();}); root.appendChild(btn);}}
 function allowedPatterns(type){return type==='rei'?['all1','orth1','diag1']:Object.keys(E.PATTERNS);}
@@ -251,43 +389,54 @@ function redrawEditor(){
 function changeDraft(which,newValue){const updated=E.clone(draft); updated[selectedPiece][which]=newValue; const error=E.validate(updated,mode); if(error) notify(error+' Tente outro padrão ou selecione Caos controlado.'); else {draft=updated; notify('Regra aceita! Clique em Aplicar regras para iniciar com ela.');} redrawEditor();}
 function setMode(){if($('opponent').value==='remote'&&peerReady)return;mode=$('mode').value; rules=E.preset(mode); draft=E.clone(rules); notify(mode==='classic'?'Modo clássico ativado. Regras personalizadas bloqueadas.':'Agora personalize qualquer peça e clique em Aplicar regras.'); redrawEditor(); startGame();}
 function exportGame(){
-  const data={version:2,mode,rules,position:pos,undo:undoStack,opponent:$('opponent').value,difficulty:$('difficulty').value,theme:$('theme').value,pieces:$('pieces').value,flipped,appearance};
-  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}); const link=document.createElement('a'); const url=URL.createObjectURL(blob); link.href=url; link.download='xadrez-mce1809-partida.json'; document.body.appendChild(link); link.click(); link.remove(); setTimeout(()=>URL.revokeObjectURL(url),1200);
+ const data={version:3,mode,rules,position:pos,undo:undoStack,opponent:$('opponent').value,difficulty:$('difficulty').value,flipped,appearance,playerChoice,humanColor};
+ const blob=new Blob([JSON.stringify(data)],{type:'application/json'});const link=document.createElement('a'),url=URL.createObjectURL(blob);
+ link.href=url;link.download='xadrez-mce1809-partida.json';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
-
-function levelFromElo(elo){
-  return elo<850?'Iniciante':elo<1050?'Aprendiz':elo<1250?'Competidor':elo<1450?'Estrategista':elo<1700?'Especialista':'Mestre de treino';
+function levelFromElo(elo){return elo<800?'Iniciante':elo<1000?'Aprendiz':elo<1200?'Competidor':elo<1450?'Estrategista':elo<1750?'Especialista':'Mestre de treino';}
+function xpProgress(xp){
+ let level=1,remaining=Math.max(0,xp);
+ while(remaining>=100*level&&level<100){remaining-=100*level;level++;}
+ return {level,progress:remaining,needed:100*level};
 }
 function updateRatingUI(){
-  $('eloValue').textContent=String(Math.round(rating.elo));
-  $('levelName').textContent=levelFromElo(rating.elo);
-  $('recordText').textContent=`${rating.w}V · ${rating.d}E · ${rating.l}D`;
+ $('eloValue').textContent=String(Math.round(rating.elo));$('levelName').textContent=levelFromElo(rating.elo);
+ $('recordText').textContent=`${rating.w}V · ${rating.d}E · ${rating.l}D`;
+ const x=xpProgress(rating.xp||0);$('xpLevel').textContent='Nível '+x.level;$('xpText').textContent=x.progress+' / '+x.needed+' XP';
+ $('xpFill').style.width=Math.max(0,Math.min(100,(x.progress/x.needed)*100))+'%';
 }
 function loadRating(){
-  try{const x=JSON.parse(localStorage.getItem(RATING_STORE)||'null');if(x&&Number.isFinite(x.elo)&&Number.isInteger(x.w)&&Number.isInteger(x.d)&&Number.isInteger(x.l))rating=x;}catch(_){}
-  updateRatingUI();
+ try{
+  let x=JSON.parse(localStorage.getItem(RATING_STORE)||'null');
+  // Se já havia partidas pontuadas na 1.3, preserva o Elo anterior.
+  if(!x){const old=JSON.parse(localStorage.getItem('mce1809-xadrez-rating-v13')||'null');
+   if(old&&Number.isInteger(old.w)&&Number.isInteger(old.d)&&Number.isInteger(old.l)&&old.w+old.d+old.l>0)x=old;
+  }
+  if(x&&Number.isFinite(x.elo)&&Number.isInteger(x.w)&&Number.isInteger(x.d)&&Number.isInteger(x.l)){
+   rating={elo:Math.max(100,Math.min(3000,Math.round(x.elo))),xp:Number.isFinite(x.xp)?Math.max(0,Math.round(x.xp)):0,w:x.w,d:x.d,l:x.l};
+   localStorage.setItem(RATING_STORE,JSON.stringify(rating));
+  }
+ }catch(_){}updateRatingUI();
 }
 function recordRating(){
-  if(ratedOnce||!finalStatus?.over||$('opponent').value!=='bot')return;
-  ratedOnce=true;
-  const score=finalStatus.winner==='w'?1:finalStatus.winner==='b'?0:0.5;
-  const botElo={1:600,2:900,3:1200,4:1550}[Number($('difficulty').value)]||900;
-  const expected=1/(1+Math.pow(10,(botElo-rating.elo)/400));
-  rating.elo=Math.round(Math.max(100,Math.min(2800,rating.elo+24*(score-expected))));
-  if(score===1)rating.w++; else if(score===0)rating.l++; else rating.d++;
-  try{localStorage.setItem(RATING_STORE,JSON.stringify(rating));}catch(_){}
-  updateRatingUI();
+ if(ratedOnce||!finalStatus?.over||$('opponent').value!=='bot')return;
+ ratedOnce=true;
+ const score=finalStatus.winner===humanColor?1:finalStatus.winner===null?0.5:0;
+ const botElo={1:400,2:650,3:920,4:1250}[Number($('difficulty').value)]||650;
+ const expected=1/(1+Math.pow(10,(botElo-rating.elo)/400));
+ rating.elo=Math.round(Math.max(100,Math.min(3000,rating.elo+30*(score-expected))));
+ if(score===1){rating.w++;rating.xp+=35+Number($('difficulty').value)*15;}
+ else if(score===0)rating.l++;else rating.d++;
+ try{localStorage.setItem(RATING_STORE,JSON.stringify(rating));}catch(_){}updateRatingUI();
+ if(score===1)notify(`Vitória! +${35+Number($('difficulty').value)*15} XP. Elo atualizado.`);
 }
 function remoteStatus(t){$('remoteStatus').textContent=t;}
 function setRemoteUI(){
-  const remote=$('opponent').value==='remote';
-  $('remotePanel').hidden=!remote;
-  $('difficultyWrap').style.display=$('opponent').value==='bot'?'':'none';
-  $('restart').disabled=remote;$('undo').disabled=remote;$('loadGame').disabled=remote;
-  $('mode').disabled=remote;
-  $('applyRules').disabled=remote||mode==='classic';
-  $('resetRules').disabled=remote;
-  $('moveRule').disabled=remote||mode==='classic';$('captureRule').disabled=remote||mode==='classic';
+ const remote=$('opponent').value==='remote';$('remotePanel').hidden=!remote;
+ $('difficultyWrap').style.display=isBotMode()?'':'none';$('trainingPanel').hidden=!isTraining();
+ $('restart').disabled=remote;$('undo').disabled=remote;$('loadGame').disabled=remote;$('mode').disabled=remote;
+ $('applyRules').disabled=remote||mode==='classic';$('resetRules').disabled=remote;
+ $('moveRule').disabled=remote||mode==='classic';$('captureRule').disabled=remote||mode==='classic';updateColorUI();
 }
 function peerClosed(){peerReady=false;remoteStatus('Desconectado. Gere novos códigos se quiser voltar.');setRemoteUI();render();}
 function startPeer(){
@@ -297,9 +446,8 @@ function startPeer(){
     onMessage:receivePeerMessage,
     onOpen:role=>{
       peerReady=true;peerRole=role;
-      if(role==='host'){
-        startGame();peer.send({t:'sync',mode,rules,position:pos});
-      }
+      if(role==='host'){startGame();peer.send({t:'sync',mode,rules,position:pos});}
+      else{flipped=true;render();}
       setRemoteUI();render();
     },
     onClose:peerClosed,
@@ -356,23 +504,56 @@ function bindPeerUI(){
   $('disconnectPeer').addEventListener('click',()=>{peer?.close();peer=null;peerRole=null;peerReady=false;remoteStatus('Conexão encerrada.');render();});
 }
 
+function showTrainingHint(){
+ if(!isTraining())return;
+ if(finalStatus?.over){$('trainingTip').textContent='A partida terminou. Inicie outra para continuar treinando.';return;}
+ if(pos.turn!==humanColor){$('trainingTip').textContent='O bot está jogando. Aguarde a sua vez.';return;}
+ const options=E.legalAll(pos,pos.turn,rules);
+ if(!options.length){$('trainingTip').textContent='Não há lances válidos.';return;}
+ const sign=pos.turn==='b'?1:-1;
+ const ranked=options.map(m=>({m,score:sign*E.evalPos(E.apply(pos,m),rules)})).sort((a,b)=>b.score-a.score);
+ trainingHint=ranked[0].m;
+ $('trainingTip').textContent='Experimente mover de '+E.square(trainingHint.fr,trainingHint.fc)+' para '+E.square(trainingHint.tr,trainingHint.tc)+'. É uma sugestão simples baseada nas peças e no posicionamento.';
+ render();
+}
+function clearTrainingHint(){trainingHint=null;$('trainingTip').textContent='Dica removida. Continue praticando!';render();}
 function init(){
-  setupSound();loadRating();bindPeerUI();
-  rebuildAppearanceInputs();
-  $('boardLightFile').addEventListener('change',onBoardFile); $('boardDarkFile').addEventListener('change',onBoardFile);
-  $('saveAppearance').addEventListener('click',saveAppearance); $('resetAppearance').addEventListener('click',resetAppearance); $('applyQuickPack').addEventListener('click',applyQuickPack);
-  for(const id of ['moveRule','captureRule']) $(id).addEventListener('change',ev=>changeDraft(id==='moveRule'?'move':'cap',ev.target.value));
-  $('applyRules').addEventListener('click',()=>{if($('opponent').value==='remote')return;const error=E.validate(draft,mode); if(error){notify(error); return;} rules=E.clone(draft); startGame(); notify('Regras aplicadas para os dois jogadores. Boa partida!');});
-  $('resetRules').addEventListener('click',()=>{draft=E.preset(mode); redrawEditor(); notify('Padrão restaurado no editor. Clique em Aplicar regras para usar.');});
-  $('mode').addEventListener('change',setMode); $('opponent').addEventListener('change',()=>{if(peer){peer.close(false);peer=null;}peerReady=false;peerRole=null;toggleBotControl();setRemoteUI();startGame();}); $('difficulty').addEventListener('change',safeSave);
-  $('restart').addEventListener('click',()=>{if($('opponent').value!=='remote')startGame();}); $('undo').addEventListener('click',undo); $('flip').addEventListener('click',()=>{flipped=!flipped; render(); safeSave();});
-  $('theme').addEventListener('change',()=>{appearance.theme=$('theme').value; applyAppearanceToUI(); safeSave(); render();});
-  $('pieces').addEventListener('change',()=>{appearance.pieces=$('pieces').value; render(); safeSave();});
-  $('downloadGame').addEventListener('click',exportGame); $('loadGame').addEventListener('click',()=>$('fileInput').click());
-  $('fileInput').addEventListener('change',async ev=>{const file=ev.target.files[0]; if(!file) return; if(file.size>1_000_000){alert('Arquivo grande demais para uma partida de xadrez.'); ev.target.value=''; return;} try{restore(JSON.parse(await file.text())); safeSave(); notify('Partida importada!');}catch(err){alert('Não foi possível abrir esta partida: '+err.message);} ev.target.value='';});
-  toggleBotControl();setRemoteUI();
-  try{const saved=localStorage.getItem(STORAGE); if(saved){restore(JSON.parse(saved)); notify('Sua última partida foi restaurada automaticamente.');} else {appearance=cloneSimple(APPEARANCE_DEFAULT); applyAppearanceToUI(); setMode();}}catch(_){appearance=cloneSimple(APPEARANCE_DEFAULT); applyAppearanceToUI(); setMode();}
+ setupSound();loadRating();bindPeerUI();loadThemeLibrary();
+ rebuildAppearanceInputs();
+ $('whiteSkinTab').addEventListener('click',()=>{skinSide='w';rebuildAppearanceInputs();});
+ $('blackSkinTab').addEventListener('click',()=>{skinSide='b';rebuildAppearanceInputs();});
+ $('boardLightFile').addEventListener('change',onBoardFile);$('boardDarkFile').addEventListener('change',onBoardFile);
+ for(const key of ['light','dark'])$('board'+(key==='light'?'Light':'Dark')+'Color').addEventListener('input',ev=>{
+  appearance.boardColors[key]=ev.target.value;appearance.boardImages[key]='';appearance.theme='custom';render();safeSave();
+ });
+ $('savedThemeSelect').addEventListener('change',()=>{const item=savedThemes.find(x=>x.id===$('savedThemeSelect').value);$('customThemeName').value=item?.name||'';});
+ $('saveCustomTheme').addEventListener('click',saveNewTheme);
+ $('loadCustomTheme').addEventListener('click',loadSelectedTheme);
+ $('renameCustomTheme').addEventListener('click',renameSelectedTheme);
+ $('deleteCustomTheme').addEventListener('click',deleteSelectedTheme);
+ $('saveAppearance').addEventListener('click',saveAppearance);$('resetAppearance').addEventListener('click',resetAppearance);$('applyQuickPack').addEventListener('click',applyQuickPack);
+ $('exportAppearance').addEventListener('click',exportAppearance);$('importAppearance').addEventListener('click',()=>$('appearanceInput').click());
+ $('appearanceInput').addEventListener('change',async ev=>{const f=ev.target.files?.[0];if(f){try{await importAppearanceFile(f);}catch(e){alert(e.message);}}ev.target.value='';});
+ for(const id of ['moveRule','captureRule'])$(id).addEventListener('change',ev=>changeDraft(id==='moveRule'?'move':'cap',ev.target.value));
+ $('applyRules').addEventListener('click',()=>{if($('opponent').value==='remote')return;const error=E.validate(draft,mode);if(error){notify(error);return;}rules=E.clone(draft);startGame();notify('Regras aplicadas para os dois jogadores. Boa partida!');});
+ $('resetRules').addEventListener('click',()=>{draft=E.preset(mode);redrawEditor();notify('Padrão restaurado no editor. Clique em Aplicar regras para usar.');});
+ $('mode').addEventListener('change',setMode);
+ $('opponent').addEventListener('change',()=>{if(peer){peer.close(false);peer=null;}peerReady=false;peerRole=null;toggleBotControl();setRemoteUI();startGame();});
+ $('playerColor').addEventListener('change',startGame);$('difficulty').addEventListener('change',safeSave);
+ $('restart').addEventListener('click',()=>{if($('opponent').value!=='remote')startGame();});
+ $('undo').addEventListener('click',undo);$('flip').addEventListener('click',()=>{flipped=!flipped;render();safeSave();});
+ $('trainingHint').addEventListener('click',showTrainingHint);$('trainingClear').addEventListener('click',clearTrainingHint);
+ $('theme').addEventListener('change',()=>{appearance.theme=$('theme').value;render();safeSave();});
+ $('pieces').addEventListener('change',()=>{appearance.pieces=$('pieces').value;render();safeSave();});
+ $('downloadGame').addEventListener('click',exportGame);$('loadGame').addEventListener('click',()=>$('fileInput').click());
+ $('fileInput').addEventListener('change',async ev=>{const file=ev.target.files?.[0];if(!file)return;if(file.size>8_000_000){alert('Arquivo grande demais para uma partida.');ev.target.value='';return;}try{restore(JSON.parse(await file.text()));safeSave();notify('Partida importada!');}catch(err){alert('Não foi possível abrir: '+err.message);}ev.target.value='';});
+ toggleBotControl();setRemoteUI();
+ try{
+  const saved=localStorage.getItem(STORAGE)||localStorage.getItem(LEGACY_STORAGE);
+  if(saved){restore(JSON.parse(saved));safeSave();notify('Partida restaurada automaticamente.');}
+  else {appearance=cloneSimple(APPEARANCE_DEFAULT);applyAppearanceToUI();setMode();}
+ }catch(_){appearance=cloneSimple(APPEARANCE_DEFAULT);applyAppearanceToUI();setMode();}
 }
 init();
-if('serviceWorker' in navigator&&location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
 })();
