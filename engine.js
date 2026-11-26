@@ -178,6 +178,33 @@ function chooseBot(p,rules,difficulty){
  // Os três níveis incluem erros intencionais para manter partidas divertidas.
  // Fácil: quase aleatório; Médio: prioriza capturas, mas erra regularmente;
  // Difícil: avalia respostas, com margem para imprecisões humanas.
+ if(difficulty>=4){
+   // Muito difícil: considera a pior resposta das brancas e sua própria continuação.
+   // Busca seletiva para não travar celulares modestos; não é um motor profissional.
+   const ranked=moves.map(m=>({m,v:evalPos(apply(p,m),rules)})).sort((a,b)=>b.v-a.v);
+   const front=ranked.slice(0,Math.min(9,ranked.length));
+   let best=front[0].m,score=-Infinity;
+   for(const item of front){
+     const next=apply(p,item.m), reply=legalAll(next,'w',rules);
+     if(!reply.length){const value=isCheck(next,'w',rules)?100000:0;if(value>score){score=value;best=item.m;}continue;}
+     let worst=Infinity;
+     // Brancas tentam a resposta mais incômoda; pretas calculam uma reação.
+     for(const response of orderMoves(next,reply).slice(0,12)){
+       const after=apply(next,response);
+       const continuations=legalAll(after,'b',rules);
+       let bestFollow=continuations.length?-Infinity:evalPos(after,rules);
+       for(const follow of orderMoves(after,continuations).slice(0,9)){
+         const v=evalPos(apply(after,follow),rules);
+         if(v>bestFollow)bestFollow=v;
+       }
+       const value=0.6*evalPos(after,rules)+0.4*bestFollow;
+       if(value<worst)worst=value;
+     }
+     const value=0.25*item.v+0.75*worst;
+     if(value>score){score=value;best=item.m;}
+   }
+   return best;
+ }
  if(difficulty===1){
    if(Math.random()<0.80)return moves[Math.floor(Math.random()*moves.length)];
    const rated=moves.map(m=>({m,v:evalPos(apply(p,m),rules)})).sort((a,b)=>b.v-a.v);

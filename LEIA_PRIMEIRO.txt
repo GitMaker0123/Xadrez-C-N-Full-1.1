@@ -1,26 +1,37 @@
-XADREZ CUSTOM FULL 1.2 — MCE1809
+XADREZ CUSTOM FULL 1.3 — MCE1809
+================================
 
-NOVIDADES
-- Sons sintéticos de movimento, captura, xeque, fim de partida e desfazer.
-- Som pode ser desativado e o volume regulado.
-- Bot recalibrado: Fácil bem acessível; Médio com erros intencionais;
-  Difícil ainda desafia, mas com escolhas menos perfeitas.
-- Preservadas todas as peças, movimentos especiais, editor de regras,
-  partidas locais, importação de PNGs e aparência personalizada.
+NOVO NESTA VERSÃO
+- Bot Muito difícil: quarto nível, mais análise de respostas sem garantir força de motor profissional.
+- Elo de treino e níveis de jogador: calculados localmente apenas em partidas finalizadas contra o bot; são estimativas recreativas, não classificações oficiais.
+- Multiplayer ponto a ponto experimental entre dois navegadores, pela internet ou numa mesma rede/hotspot sem dados móveis.
+- Sons, regras customizadas, tabuleiros PNG e peças PNG da Full 1.2 mantidos.
 
-PUBLICAR A ATUALIZAÇÃO NO GITHUB PAGES
-1. Abra seu repositório Xadrez-MCE1809 no GitHub.
-2. Substitua os arquivos da raiz por estes arquivos (extraídos do ZIP).
-   Envie o conteúdo do ZIP, não o ZIP inteiro.
-3. Salve as alterações com Commit changes.
-4. Em Settings > Pages, mantenha main / (root).
-5. Abra o site publicado. Se o PWA mantiver a versão antiga, feche e
-   reabra; atualize a página online para instalar os novos recursos.
+PUBLICAÇÃO NO GITHUB PAGES
+1. Extraia este ZIP.
+2. Envie TODOS OS ARQUIVOS SOLTOS para a raiz da ramificação main de seu repositório, substituindo os antigos.
+3. IMPORTANTE: 'peer.js' é um arquivo NOVO nesta versão. Envie-o junto dos outros.
+4. Mantenha GitHub Pages configurado em main / (root).
+5. Abra a URL HTTPS e atualize/reabra seu PWA. O novo service worker v13 substitui o cache antigo.
 
-OBSERVAÇÕES
-- O som funciona depois da primeira interação do jogador com a página.
-- Todos os sons são gerados localmente, sem baixar música ou efeitos sonoros.
-- Seus PNGs personalizados ficam armazenados localmente no navegador.
-- Uma atualização pode mudar a forma como o armazenamento é mantido;
-  por precaução, exporte partidas importantes antes de atualizar.
-- Esse pacote é um site/PWA, não um APK.
+COMO JOGAR ENTRE DOIS APARELHOS — EXPERIMENTAL
+A) Cada jogador abre o mesmo site em seu celular/computador; para uso sem internet, ambos devem ter carregado/instalado o PWA antes e os arquivos precisam estar no cache.
+B) No campo Adversário, ambos selecionam '2 aparelhos (rede/internet)'.
+C) Os dois escolhem o MESMO tipo de conexão: 'Rede local/hotspot' (um ativa o roteador; o outro se conecta) ou 'Internet'.
+D) Jogador A toca 'Criar sala (brancas)', aguarda o código de convite e o ENVIA ao Jogador B.
+E) Jogador B cola o convite em 'Código recebido', toca 'Confirmar código recebido', aguarda a geração do próprio código e o ENVIA ao Jogador A.
+F) Jogador A cola a resposta em 'Código recebido' e toca 'Confirmar código recebido'.
+G) Quando aparecer 'Conectado', A joga de brancas e B de pretas. O anfitrião define as regras, compartilhadas ao conectar.
+
+COMO TROCAR CÓDIGOS SEM INTERNET
+Use Bluetooth, Quick Share/Compartilhamento por Proximidade ou outro meio de compartilhamento local de texto. Um hotspot sem internet cria uma rede local, mas não transfere os códigos por conta própria.
+
+LIMITAÇÕES IMPORTANTES
+- A conexão utiliza WebRTC DataChannel (criptografia de transporte integrada).
+- O site NÃO dispõe de servidor para localizar jogadores ou gerenciar salas online. A troca manual dos dois códigos é necessária.
+- Internet: usa STUN público para tentar conexão direta, e pode falhar com certos roteadores/NAT; não há servidor TURN de retransmissão. Não há promessa de conectividade universal.
+- Rede local/hotspot: depende de o roteador permitir comunicação entre clientes e da compatibilidade dos navegadores. Alguns pontos de acesso isolam aparelhos.
+- A aparência personalizada e o Elo são salvos por navegador, não sincronizados em conta.
+- Elo vale só para partidas contra o bot. Multiplayer é amistoso; não existe proteção antitrapaça, conta, ranking ou pareamento automático.
+- A integração WebRTC entre dois aparelhos físicos ainda não foi validada; use como BETA experimental.
+- Para manter o multiplayer aberto, mantenha os dois navegadores abertos e a rede local/internet ativa. Se um jogador fechar a página, a conexão cai.
