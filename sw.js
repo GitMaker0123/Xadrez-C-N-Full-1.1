@@ -1,6 +1,20 @@
-/* Aplicativo web offline do MCE1809 — v1.4 Full */
-const CACHE='xadrez-mce1809-full-v14';
+/* Cache offline do Xadrez Custom Full 1.5 — MCE1809 */
+const CACHE='xadrez-mce1809-full-v15';
 const FILES=['./','./index.html','./engine.js','./game.js','./peer.js','./style.css','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
-self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES)).then(()=>self.skipWaiting()));});
-self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('xadrez-mce1809-')&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim()));});
-self.addEventListener('fetch',event=>{if(event.request.method!=='GET')return;const url=new URL(event.request.url);if(url.origin!==self.location.origin)return;if(event.request.mode==='navigate'){event.respondWith(fetch(event.request).then(response=>{const clone=response.clone();caches.open(CACHE).then(c=>c.put(event.request,clone));return response;}).catch(()=>caches.match(event.request).then(r=>r||caches.match('./index.html'))));return;}event.respondWith(caches.match(event.request).then(found=>found||fetch(event.request)));});
+self.addEventListener('install',e=>e.waitUntil((async()=>{const c=await caches.open(CACHE);await c.addAll(FILES);await self.skipWaiting();})()));
+self.addEventListener('activate',e=>e.waitUntil((async()=>{const keys=await caches.keys();await Promise.all(keys.filter(k=>k.startsWith('xadrez-mce1809-')&&k!==CACHE).map(k=>caches.delete(k)));await self.clients.claim();})()));
+self.addEventListener('fetch',e=>{
+ if(e.request.method!=='GET')return;
+ const url=new URL(e.request.url);if(url.origin!==self.location.origin)return;
+ const local=url.pathname.startsWith(new URL(self.registration.scope).pathname);
+ if(!local)return;
+ e.respondWith((async()=>{
+   const c=await caches.open(CACHE);
+   // Pacote do jogo sempre do cache, sem depender da internet.
+   // Ao publicar nova versão, o novo SW popula um cache de versão nova.
+   const cached=await c.match(e.request,{ignoreSearch:true});
+   if(cached)return cached;
+   try{const response=await fetch(e.request);if(response.ok)await c.put(e.request,response.clone());return response;}
+   catch(err){if(e.request.mode==='navigate')return (await c.match('./index.html'))||Response.error();throw err;}
+ })());
+});

@@ -67,3 +67,6 @@ body[data-theme="neon"]{--light:#353854;--dark:#356c7b;--accent:#4fffc6}body[dat
 .board-colors{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:9px 0}
 .board-colors input[type="color"]{display:block;min-width:0;width:100%;height:46px;padding:4px;margin-top:5px;background:#142a3b;border:1px solid #486278;border-radius:9px;cursor:pointer}
 @media(max-width:360px){.theme-buttons{grid-template-columns:1fr 1fr}.theme-buttons .button{font-size:11px}}
+/* Full 1.5: estado do cache offline */
+.offline-strip{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border:1px solid #3a6d6b;background:#102b2f;color:#abf2db;border-radius:11px;padding:8px 10px;font-size:12px;margin:12px 0 0}
+.offline-strip .button{min-height:34px;padding:5px 10px;font-size:11px}

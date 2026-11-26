@@ -1,47 +1,20 @@
-XADREZ CUSTOM FULL 1.4 — MCE1809
-================================
+XADREZ CUSTOM FULL 1.5 — MCE1809
 
-Esta é uma atualização do seu aplicativo web instalável (PWA), e NÃO um APK.
-Funciona no navegador, pode ser instalado na tela inicial e não precisa de servidor para partidas contra bot e treino.
+COMO ATUALIZAR: Extraia todos os arquivos deste ZIP e substitua os antigos na RAIZ da branch main do GitHub Pages.
+Garanta que index.html, engine.js, game.js, peer.js, style.css, sw.js, manifest.webmanifest e os PNGs estejam lado a lado.
+Se o aplicativo instalado ainda mostrar a versão antiga, abra o endereço HTTPS no navegador conectado à internet, atualize e depois feche/reabra o aplicativo. O service worker troca para o cache v15.
 
-NOVIDADES
-- Som de movimento estilo “tec-tec” (estalos sintetizados no navegador), captura, xeque e fim de partida.
-- Movimento suavizado: a imagem da peça desliza da origem até o destino, com preferência por reduzir movimento respeitada.
-- Escolher Brancas, Pretas ou Cor aleatória. Se escolher Pretas contra o bot, o bot com Brancas começa.
-- Treino com dicas básicas de jogadas; não altera Elo nem XP.
-- Elo recreativo começando em 600 para novos jogadores. Preserva Elo da 1.3 se já houver partidas pontuadas.
-- XP por VITÓRIA contra bot, barra de XP e nível numérico. Outros modos não alteram Elo/XP.
-- Aparência: seleção de peças brancas ou pretas; importar PNG/WEBP/JPG e cores do tabuleiro.
-- Biblioteca de temas: Tema Custom #1, #2 etc.; salvar, renomear, carregar e excluir.
-- Não é possível salvar o visual padrão sem alteração nem dois temas visualmente idênticos.
-- Exportar/importar o pack atual (.json) como cópia de segurança.
-- O multiplayer WebRTC da 1.3 continua experimental, com pareamento manual por códigos.
+OFFLINE
+Após abrir online pelo menos uma vez, clique em Verificar offline e confirme a mensagem “Offline pronto”. Só então desligue a internet para testar. Bot, treino, temas já salvos e dois jogadores no mesmo aparelho não exigem internet. Não limpe os dados do navegador, pois isso remove cache e temas. Não abra index.html diretamente via file:// se desejar instalação PWA/offline confiável.
 
-PUBLICAR / ATUALIZAR NO GITHUB PAGES
-1. Faça backup dos seus arquivos atuais do repositório, se quiser.
-2. Extraia o ZIP. Envie os arquivos DE DENTRO da pasta Xadrez_Custom_FULL_1_4 à RAIZ do mesmo repositório no GitHub.
-3. Substitua os arquivos de mesmo nome: index.html, game.js, engine.js, peer.js,
-   style.css, manifest.webmanifest, sw.js, icon-192.png, icon-512.png.
-4. Salve as alterações (Commit changes). O GitHub Pages continua ativo automaticamente.
-5. Abra o link do jogo, atualize o navegador e, se estiver instalado como PWA, feche e reabra.
-   Se continuar vendo a versão 1.3, atualize novamente após o navegador detectar o novo Service Worker.
+MULTIPLAYER EM 2 APARELHOS
+No hotspot, ligue o roteador Wi-Fi no A31 e conecte o A51. Ambos devem ter o app armazenado offline. Escolha 2 aparelhos → Rede local/hotspot, crie sala no A31 e gere convite. Compartilhe o código via TXT (Bluetooth/Quick Share/arquivo), importe no A51, confirme e compartilhe a resposta da mesma forma; confirme no A31. O WebRTC não exige internet para uma conexão direta LAN mas depende de ambos os navegadores e da rede permitirem ICE e conexão P2P. Não existe descoberta automática de sala.
+Pela internet, o modo experimental usa STUN público e NÃO inclui TURN ou servidor de sinalização. Pode falhar com redes restritivas ou NAT simétrico. Alguns aparelhos fecham o canal se bloquearem o navegador ou mudarem de rede.
 
-COMO SALVAR TEMAS
-- Abra “Aparência do jogo → Meus temas salvos”.
-- Troque pelo menos uma coisa: tabuleiro, cor das casas, pack de peças ou PNG de uma peça.
-- O campo de nome pode ficar em branco: gera Tema Custom #1, #2 etc. automaticamente.
-- Clique em “+ Salvar tema novo”.
-- Selecione um tema salvo para carregar, renomear ou excluir.
-- Os visuais são armazenados NO NAVEGADOR daquele aparelho, não no GitHub.
-- Faça backup exportando um pack JSON, especialmente antes de limpar dados do navegador.
-- As imagens importadas são reduzidas para 256x256 para economizar espaço; há limite de armazenamento do navegador.
+ÁUDIO
+Som “tec-tec” agora dispara apenas ao terminar a animação, com proteção para disparar uma única vez. O contexto de áudio é ativado nos gestos do usuário; se estiver silencioso, toque em Testar som e verifique o volume e o modo silencioso do telefone. O navegador pode suspender áudio no fundo.
 
-OBSERVAÇÕES
-- Os efeitos sonoros dependem das permissões e do volume do navegador.
-- A animação depende de suporte do navegador a animações Web e é desativada se o sistema preferir reduzir movimento.
-- Os cálculos de Elo/XP são locais, recreativos e NÃO constituem classificação oficial.
-- O bot Muito difícil é uma IA local leve, não um motor profissional de xadrez.
-- Multiplayer entre navegadores segue EXPERIMENTAL e não foi validado em A31/A51.
-- Não foram incluídas imagens de packs de terceiros. Você pode importar seus PNGs no editor.
+TESTES
+Sem promessa de funcionamento em todos os navegadores Android: experimente uma partida offline, o som e o multiplayer em A31/A51 antes de divulgar como função validada.
 
-CRÉDITOS: MCE1809 — Projeto Xadrez Custom Full 1.4
+Crédito: MCE1809.

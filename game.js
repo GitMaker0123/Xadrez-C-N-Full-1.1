@@ -1,4 +1,4 @@
-/* Interface e persistência offline do Xadrez Custom Full — MCE1809 1.4 */
+/* Interface e persistência offline do Xadrez Custom Full — MCE1809 1.5 */
 (()=>{
 'use strict';
 const E=window.XadrezEngine;
@@ -7,7 +7,7 @@ const ICON={
   classic:{w:{rei:'♔',dama:'♕',torre:'♖',bispo:'♗',cavalo:'♘',peao:'♙'},b:{rei:'♚',dama:'♛',torre:'♜',bispo:'♝',cavalo:'♞',peao:'♟'}},
   cyber:{w:{rei:'👑',dama:'💎',torre:'🚀',bispo:'⚡',cavalo:'🦄',peao:'🛡️'},b:{rei:'💀',dama:'🔮',torre:'🛸',bispo:'🔥',cavalo:'🐉',peao:'⚔️'}}
 };
-const STORAGE='mce1809-xadrez-full-v14';
+const STORAGE='mce1809-xadrez-full-v14'; // mantido para preservar partidas da 1.4
 const LEGACY_STORAGE='mce1809-xadrez-full-v11';
 const THEME_STORE='mce1809-xadrez-custom-themes-v14';
 const SOUND_STORE='mce1809-xadrez-sound-v12';
@@ -24,28 +24,41 @@ let mode='balanced',rules=E.preset(mode),draft=E.clone(rules),selectedPiece='tor
 let pos=E.newPosition(),selections=[],selected=null,undoStack=[],timer=null,flipped=false,promotionPending=null,finalStatus=null;
 
 function cloneSimple(v){return JSON.parse(JSON.stringify(v));}
+// O áudio do Android precisa ser desbloqueado por um gesto do jogador.
+// Sons de movimento são disparados somente na conclusão da animação.
+let audioReady=false,moveSoundSequence=0;
+function unlockAudio(){
+  if(!soundConfig.enabled)return;
+  try{
+    const Ctx=window.AudioContext||window.webkitAudioContext;
+    if(!Ctx)return;
+    if(!audioCtx) audioCtx=new Ctx();
+    if(audioCtx.state==='running'){audioReady=true;return;}
+    audioCtx.resume().then(()=>{audioReady=audioCtx.state==='running';}).catch(()=>{});
+  }catch(_){}
+}
 function playSound(kind){
   if(!soundConfig.enabled||soundConfig.volume<=0)return;
   try{
-    const AudioCtx=window.AudioContext||window.webkitAudioContext;
-    if(!AudioCtx)return;
-    if(!audioCtx)audioCtx=new AudioCtx();
-    if(audioCtx.state==='suspended')audioCtx.resume().catch(()=>{});
-    const pairs={move:[[0,0.018],[0.064,0.018]],capture:[[0,0.023],[0.075,0.024],[0.14,0.018]],check:[[0,0.020],[0.063,0.021],[0.18,0.045]],end:[[0,0.024],[0.09,0.024],[0.19,0.027]],undo:[[0,0.017],[0.076,0.017]]};
-    const now=audioCtx.currentTime+0.015;
-    for(const [delay,dur] of (pairs[kind]||pairs.move)){
-      const t=now+delay;
-      // Estalo curto tipo madeira: ataque quase instantâneo e rápida queda de tom.
+    unlockAudio();
+    if(!audioCtx||audioCtx.state!=='running')return;
+    // Percussão curta: dois contatos secos de madeira separados por 54ms.
+    const clicks={move:[0,.054],capture:[0,.052,.12],check:[0,.054,.18],end:[0,.075,.17],undo:[0,.065]};
+    const now=audioCtx.currentTime+.006;
+    for(const [i,delay] of (clicks[kind]||clicks.move).entries()){
+      const t=now+delay,dur=kind==='end'?.045:.022;
       const osc=audioCtx.createOscillator(),gain=audioCtx.createGain(),filter=audioCtx.createBiquadFilter();
-      osc.type='triangle';osc.frequency.setValueAtTime(kind==='check'?1100:880,t);
-      osc.frequency.exponentialRampToValueAtTime(kind==='capture'?250:340,t+dur);
-      filter.type='lowpass';filter.frequency.setValueAtTime(1900,t);
-      gain.gain.setValueAtTime(Math.max(0.001,soundConfig.volume*0.22),t);
-      gain.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+      osc.type='triangle';
+      osc.frequency.setValueAtTime((kind==='capture'?820:960)*(i?0.84:1),t);
+      osc.frequency.exponentialRampToValueAtTime(300,t+dur);
+      filter.type='lowpass';filter.frequency.value=2500;
+      gain.gain.setValueAtTime(Math.max(.0001,soundConfig.volume*.34),t);
+      gain.gain.exponentialRampToValueAtTime(.0001,t+dur);
       osc.connect(filter);filter.connect(gain);gain.connect(audioCtx.destination);
-      osc.start(t);osc.stop(t+dur+0.01);
+      osc.start(t);osc.stop(t+dur+.005);
+      osc.onended=()=>{try{osc.disconnect();gain.disconnect();filter.disconnect();}catch(_){}};
     }
-  }catch(_){ /* Som opcional, sem afetar a partida. */ }
+  }catch(_){} // O áudio nunca pode interromper uma partida.
 }
 function saveSound(){try{localStorage.setItem(SOUND_STORE,JSON.stringify(soundConfig));}catch(_){}}
 function setupSound(){
@@ -54,7 +67,10 @@ function setupSound(){
   $('soundVolume').value=String(Math.round(soundConfig.volume*100));
   $('soundEnabled').addEventListener('change',()=>{soundConfig.enabled=$('soundEnabled').checked;saveSound();if(soundConfig.enabled)playSound('move');});
   $('soundVolume').addEventListener('input',()=>{soundConfig.volume=Number($('soundVolume').value)/100;saveSound();});
-  $('testSound').addEventListener('click',()=>playSound('capture'));
+  $('testSound').addEventListener('click',()=>{unlockAudio();playSound('capture');});
+  document.addEventListener('pointerdown',unlockAudio,{capture:true,passive:true});
+  document.addEventListener('touchstart',unlockAudio,{capture:true,passive:true});
+  document.addEventListener('keydown',unlockAudio,{capture:true});
 }
 function say(t){$('status').textContent=t;}
 function notify(t){$('feedback').textContent=t;}
@@ -258,6 +274,7 @@ function restore(d){
  if(!E.result(pos,rules).over&&isBotMode()&&pos.turn!==humanColor)scheduleBot();
 }
 function startGame(){
+ for(const ghost of document.querySelectorAll('.moving-piece-ghost'))ghost.remove();
  stopTimer();pos=E.newPosition();undoStack=[];selected=null;selections=[];promotionPending=null;ratedOnce=false;trainingHint=null;closePromotion();
  if($('opponent').value!=='remote'){
   playerChoice=$('playerColor').value;
@@ -275,21 +292,31 @@ function statusText(result){
  return prefix+side+(result.check?' devem proteger o rei.':'');
 }
 function currentIconSet(){return ICON[appearance.pieces==='custom'?(appearance.quickPack||'classic'):$('pieces').value]||ICON.classic;}
-function animateMove(m,oldPiece,fromRect){
- if(!oldPiece||!fromRect||window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)return;
+function animateMove(m,oldPiece,fromRect,onArrive){
+ let finished=false;
+ const arrive=()=>{if(finished)return;finished=true;onArrive?.();};
+ if(!oldPiece||!fromRect||window.matchMedia?.('(prefers-reduced-motion: reduce)').matches){arrive();return;}
  const end=document.querySelector(`.square[data-r="${m.tr}"][data-c="${m.tc}"]`);
- if(!end)return;const toRect=end.getBoundingClientRect();
- if(!fromRect.width||!toRect.width)return;
+ if(!end){arrive();return;}
+ const toRect=end.getBoundingClientRect();
+ if(!fromRect.width||!toRect.width){arrive();return;}
  const ghost=document.createElement('div');ghost.className='moving-piece-ghost';
  ghost.style.left=fromRect.left+'px';ghost.style.top=fromRect.top+'px';ghost.style.width=fromRect.width+'px';ghost.style.height=fromRect.height+'px';
  const src=appearance.pieces==='custom'?appearance.pieceImages[pieceKey(oldPiece.color,oldPiece.type)]:'';
  if(src){const img=document.createElement('img');img.className='custom-piece';img.src=src;ghost.appendChild(img);}
- else {ghost.textContent=currentIconSet()[oldPiece.color][oldPiece.type];ghost.style.fontSize=getComputedStyle(end).fontSize;ghost.style.color=oldPiece.color==='w'?'#faf9f0':'#17232d';ghost.style.textShadow=oldPiece.color==='w'?'0 1px 3px #030d12':'0 1px 2px #ffffffb0';}
+ else{ghost.textContent=currentIconSet()[oldPiece.color][oldPiece.type];ghost.style.fontSize=getComputedStyle(end).fontSize;ghost.style.color=oldPiece.color==='w'?'#faf9f0':'#17232d';ghost.style.textShadow=oldPiece.color==='w'?'0 1px 3px #030d12':'0 1px 2px #ffffffb0';}
  document.body.appendChild(ghost);end.classList.add('arrival-target');
  const dx=toRect.left-fromRect.left,dy=toRect.top-fromRect.top;
- const cleanup=()=>{ghost.remove();end.classList.remove('arrival-target');};
- if(ghost.animate){const a=ghost.animate([{transform:'translate(0px,0px)'},{transform:`translate(${dx}px, ${dy}px)`}],{duration:260,easing:'cubic-bezier(.25,.8,.25,1)'});a.onfinish=cleanup;a.oncancel=cleanup;}
- else {ghost.style.transition='transform 260ms ease-out';requestAnimationFrame(()=>ghost.style.transform=`translate(${dx}px, ${dy}px)`);setTimeout(cleanup,310);}
+ let fallback;
+ const cleanup=()=>{clearTimeout(fallback);ghost.remove();end.classList.remove('arrival-target');arrive();};
+ fallback=setTimeout(cleanup,420); // Segurança caso animation.finish não dispare no Android.
+ if(ghost.animate){
+   try{const a=ghost.animate([{transform:'translate(0px,0px)'},{transform:`translate(${dx}px,${dy}px)`}],{duration:260,easing:'cubic-bezier(.25,.8,.25,1)'});a.onfinish=cleanup;a.oncancel=cleanup;}
+   catch(_){cleanup();}
+ }else{
+   ghost.style.transition='transform 260ms ease-out';requestAnimationFrame(()=>ghost.style.transform=`translate(${dx}px,${dy}px)`);
+   setTimeout(cleanup,290);
+ }
 }
 function render(){
   finalStatus=E.result(pos,rules); say(statusText(finalStatus));
@@ -358,8 +385,9 @@ function doMove(m,remote=false){
  const oldRect=source?.getBoundingClientRect();const oldPiece=pos.board[m.fr][m.fc]?{...pos.board[m.fr][m.fc]}:null;
  const captured=!!pos.board[m.tr][m.tc]||!!m.enPassant;
  undoStack.push(E.clone(pos));if(undoStack.length>50)undoStack.shift();
- pos=E.apply(pos,m,true);selected=null;selections=[];trainingHint=null;render();animateMove(m,oldPiece,oldRect);
- playSound(finalStatus.over?'end':finalStatus.check?'check':captured?'capture':'move');
+ pos=E.apply(pos,m,true);selected=null;selections=[];trainingHint=null;render();
+ const soundKind=finalStatus.over?'end':finalStatus.check?'check':captured?'capture':'move';
+ animateMove(m,oldPiece,oldRect,()=>playSound(soundKind));
  if($('opponent').value==='remote'&&!remote){if(!peer?.send({t:'move',m:{fr:m.fr,fc:m.fc,tr:m.tr,tc:m.tc,promote:m.promote||''},n:pos.history.length}))notify('Falha ao enviar movimento.');}
  recordRating();safeSave();
  if(!finalStatus.over&&isBotMode()&&pos.turn!==humanColor)scheduleBot();
@@ -497,11 +525,43 @@ function bindPeerUI(){
     try{await navigator.clipboard.writeText($('ownSignal').value);remoteStatus('Código copiado. Envie ao outro jogador.');}
     catch(_){$('ownSignal').select();remoteStatus('Selecione e copie o código manualmente.');}
   });
+  $('downloadSignal').addEventListener('click',()=>{
+    const code=$('ownSignal').value.trim();if(!code){remoteStatus('Gere um código primeiro.');return;}
+    const blob=new Blob([code],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download='xadrez-mce1809-codigo.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);
+    remoteStatus('Código salvo em arquivo TXT. Compartilhe-o com o outro aparelho.');
+  });
+  $('importSignal').addEventListener('click',()=>$('signalFile').click());
+  $('signalFile').addEventListener('change',async ev=>{
+    const f=ev.target.files?.[0];ev.target.value='';if(!f)return;
+    if(f.size>40000){remoteStatus('Arquivo de código grande demais.');return;}
+    try{const t=(await f.text()).trim();const d=JSON.parse(t);if(!['offer','answer'].includes(d.type)||typeof d.sdp!=='string')throw Error('Arquivo inválido');$('peerSignal').value=t;remoteStatus('Código carregado. Toque em Confirmar código recebido.');}
+    catch(_){remoteStatus('Esse arquivo não contém um código de conexão válido.');}
+  });
   $('shareSignal').addEventListener('click',async()=>{
     try{await navigator.share({title:'Xadrez Custom — código de conexão',text:$('ownSignal').value});}
     catch(_){remoteStatus('Use Copiar código e envie pelo método disponível no celular.');}
   });
   $('disconnectPeer').addEventListener('click',()=>{peer?.close();peer=null;peerRole=null;peerReady=false;remoteStatus('Conexão encerrada.');render();});
+}
+
+function setupOfflineUI(){
+ const label=$('offlineIndicator'),btn=$('checkOffline');
+ const update=async()=>{
+   if(!('serviceWorker' in navigator)||!('caches' in window)){label.textContent='Offline: navegador sem suporte necessário';return;}
+   try{
+     const names=await caches.keys();
+     const cacheName=names.find(x=>x==='xadrez-mce1809-full-v15');
+     if(!cacheName){label.textContent='Offline: preparando arquivos — mantenha esta página online';return;}
+     const c=await caches.open(cacheName);
+     const entries=await Promise.all(['index.html','engine.js','game.js','peer.js','style.css','manifest.webmanifest','icon-192.png','icon-512.png'].map(f=>c.match(new URL('./'+f,location.href))));
+     label.textContent=entries.every(Boolean)?'Offline pronto: jogo, bot e treino disponíveis':'Offline: arquivos ainda incompletos';
+   }catch(_){label.textContent='Offline: não foi possível verificar o cache';}
+ };
+ btn.addEventListener('click',update);
+ window.addEventListener('online',update);window.addEventListener('offline',update);
+ if('serviceWorker' in navigator){navigator.serviceWorker.ready.then(update).catch(()=>{});navigator.serviceWorker.addEventListener('controllerchange',update);}
+ setTimeout(update,1200);
 }
 
 function showTrainingHint(){
@@ -518,7 +578,7 @@ function showTrainingHint(){
 }
 function clearTrainingHint(){trainingHint=null;$('trainingTip').textContent='Dica removida. Continue praticando!';render();}
 function init(){
- setupSound();loadRating();bindPeerUI();loadThemeLibrary();
+ setupSound();loadRating();bindPeerUI();loadThemeLibrary();setupOfflineUI();
  rebuildAppearanceInputs();
  $('whiteSkinTab').addEventListener('click',()=>{skinSide='w';rebuildAppearanceInputs();});
  $('blackSkinTab').addEventListener('click',()=>{skinSide='b';rebuildAppearanceInputs();});
